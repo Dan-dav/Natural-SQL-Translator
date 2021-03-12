@@ -24,6 +24,4 @@ lin
   CompOpGEq = ">=" ;
   CompOpLEq = "<=" ;
   CompOpNE = "<>" ;
-  -- CondEquals c i = "WHERE" ++ c ++ "=" ++ i.s ++ ";" ;
-  -- CondGt c i = "WHERE" ++ c ++ ">" ++ i.s ++ ";" ;
 }

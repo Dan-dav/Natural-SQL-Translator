@@ -19,6 +19,4 @@ fun
   CondNone : ConditionPart ;
   CondComp : Column -> CompOp -> Int -> ConditionPart ;
   CompOpEq, CompOpGt, CompOpLt, CompOpGEq, CompOpLEq, CompOpNE : CompOp ;
-  -- CondEquals : Column -> Int -> ConditionPart ;
-  -- CondGt : Column -> Int -> ConditionPart ;
 }
