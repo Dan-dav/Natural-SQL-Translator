@@ -19,41 +19,43 @@ cat
   OrderPart ;
   SortBy ;
   [SortBy] {2} ;
+  LimitPart ;
+  InsertPart ;
+  InsertCol ;
+  [InsertCol] {2} ;
+  UpdatePart ;
+  UpdateCol ;
+  [UpdateCol] {2} ;
 
 fun
-  StSelect : ColumnPart -> FromPart -> PredicatePart -> OrderPart -> Statement ;
-  StDelete : FromPart -> PredicatePart -> Statement ;
-  -- StInsert : Statement ;
-  -- StUpdate : Statement ;
-
   -- SELECT -----------------------------
-
+  
+  StSelect : ColumnPart -> FromPart -> PredicatePart -> OrderPart -> LimitPart -> Statement ;
+  
   SColumnAll : ColumnPart ;
   SColumnOne : Column -> ColumnPart ;
   SColumnMultiple : [Column] -> ColumnPart ;
   
-  ColName, ColCapital, ColArea, ColPopulation, ColContinent, ColCurrency : Column ;
-
   ------- FROM
   
   SFromTable : Table -> FromPart ;
-  TabCountries : Table ;
 
   ------- WHERE
 
   PredNothing : PredicatePart ;
   PredSomething : Predicate -> PredicatePart ;
+
   PredAnd : Predicate -> Predicate -> Predicate ; -- mind parentheses on sql side
   PredOr : Predicate -> Predicate -> Predicate ;
   PredComp : Column -> CompOp -> Value -> Predicate ; -- =, <>, >, >=, <, <=
   PredIn : Column -> [Value] -> Predicate ;
   PredBetween : Column -> Value -> Value -> Predicate ;
-  --PredLike : Column -> LikeOp -> Str -> Predicate ;
+  PredLike : Column -> LikeOp -> String -> Predicate ;
   PredIsNull : Column -> Predicate ;
   PredIsNotNull : Column -> Predicate ;
 
   ValInt : Int -> Value ;
-  --ValStr : Str -> Value ;
+  ValStr : String -> Value ;
   
   CompOpEq, CompOpGt, CompOpLt, CompOpGEq, CompOpLEq, CompOpNE : CompOp ;
   LikeBegins, LikeEnds, LikeContains : LikeOp ; -- Doesn't cover all of LIKE functionality
@@ -70,7 +72,34 @@ fun
   OrdAsc : Order ;
   OrdDesc : Order ;
 
+  ------- LIMIT
+
+  LimNone : LimitPart ;
+  LimNum : Int -> LimitPart ;
+
   -- DELETE -----------------------------
+  
+  StDelete : FromPart -> PredicatePart -> Statement ;
+  
   -- INSERT -----------------------------
+  
+  StInsert : Table -> InsertPart -> Statement ;
+
+  IColValOne : InsertCol -> InsertPart ;
+  IColValMultiple : [InsertCol] -> InsertPart ;
+  IOnlyValOne : Value -> InsertPart ;
+  IOnlyValMultiple : [Value] -> InsertPart ;
+
+  InsertColWith : Column -> Value -> InsertCol ;
+  
   -- UPDATE -----------------------------
+  
+  StUpdate : Table -> UpdatePart -> PredicatePart -> Statement ;
+
+  UpdateOne : UpdateCol -> UpdatePart ;
+  UpdateMultiple : [UpdateCol] -> UpdatePart ;
+  -- add support for inc by one etc.
+
+  UpdateColWith : Column -> Value -> UpdateCol ;
+
 }

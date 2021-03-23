@@ -11,46 +11,43 @@ concrete DatabasesSQL of Databases = {
 lincat
   Statement, ColumnPart, FromPart, PredicatePart, Predicate, Column, 
   [Column], Table, CompOp, Value, [Value], Order, OrderPart, SortBy, 
-  [SortBy] = Str ;
+  [SortBy], LimitPart, UpdatePart, UpdateCol, [UpdateCol] = Str ;
   LikeOp = {before : Str ; after : Str} ;
+  InsertPart, InsertCol = {col : Str ; val : Str} ;
+  [InsertCol] = {cols : Str ; vals : Str} ;
 
 lin
-  
   -- SELECT -----------------------------
-  StSelect col from pred order = col ++ from ++ pred ++ order ++ ";" ;
+
+  StSelect col from pred order lim = col ++ from ++ pred ++ order ++ lim ++ ";" ;
 
   SColumnAll = "SELECT *" ;  
   SColumnOne c = "SELECT" ++ c ;
   SColumnMultiple cs = "SELECT" ++ cs ;
-  ColName = "name" ;
-  ColCapital = "capital" ;
-  ColArea = "area" ;
-  ColPopulation = "population" ;
-  ColContinent = "continent" ;
-  ColCurrency = "currency" ;
+
   BaseColumn c1 c2 = c1 ++ "," ++ c2 ;
   ConsColumn c cs = c ++ "," ++ cs ;
 
   ------- FROM
   
   SFromTable t = "FROM" ++ t ;
-  TabCountries = "countries" ;
 
   ------- WHERE
 
   PredNothing = "" ;
   PredSomething p = "WHERE" ++ p ;
+
   PredAnd p1 p2 = p1 ++ "AND" ++ p2 ;
   PredOr p1 p2 = p1 ++ "OR" ++ p2 ;
   PredComp c compOp v = c ++ compOp ++ v ;
   PredIn c vs = c ++ "IN (" ++ vs ++ ")" ;
   PredBetween c v1 v2 = c ++ "BETWEEN" ++ v1 ++ "AND" ++ v2 ;
-  --PredLike c op st = c ++ "LIKE" ++ op.before ++ st.s ++ op.after ;
+  PredLike c op st = c ++ "LIKE" ++ op.before ++ st.s ++ op.after ;
   PredIsNull c = c ++ "IS NULL" ;
   PredIsNotNull c = c ++ "IS NOT NULL" ;
 
   ValInt i = i.s ;
-  --ValStr st = "'" ++ st.s ++ "'" ;
+  ValStr st = st.s ; -- "'" ++ st.s ++ "'" ;
 
   BaseValue v1 v2 = v1 ++ "," ++ v2 ;
   ConsValue v vs = v ++ "," ++ vs ;
@@ -81,10 +78,41 @@ lin
   OrdAsc = "ASC" ;
   OrdDesc = "DESC" ;
 
+  ------- LIMIT
+
+  LimNone = "" ;
+  LimNum i = "LIMIT" ++ i.s ;
+
   -- DELETE -----------------------------
+
   StDelete from pred = "DELETE" ++ from ++ pred ++ ";" ;
+
   ------- FROM and WHERE as above
 
   -- INSERT -----------------------------
+
+  StInsert tab ins = "INSERT INTO" ++ tab ++ ins.col ++ "VALUES" ++ ins.val ++ ";" ;
+
+  IColValOne ic = {col = "(" ++ ic.col ++ ")"; val = "(" ++ ic.val ++ ")"} ;
+  IColValMultiple ics = {col = "(" ++ ics.cols ++ ")"; val = "(" ++ ics.vals ++ ")"} ;
+  IOnlyValOne v = {col = ""; val = "(" ++ v ++ ")"} ;
+  IOnlyValMultiple vs = {col = ""; val = "(" ++ vs ++ ")"} ;
+
+  BaseInsertCol ic1 ic2 = {cols = ic1.col ++ "," ++ ic2.col; vals = ic1.val ++ "," ++ ic2.val} ;
+  ConsInsertCol ic ics = {cols = ic.col ++ "," ++ ics.cols; vals = ic.val ++ "," ++ ics.vals} ;
+
+  InsertColWith c v = {col = c; val = v} ;
+
   -- UPDATE -----------------------------
+
+  StUpdate tab upd pred = "UPDATE" ++ tab ++ "SET" ++ upd ++ pred ++ ";" ;
+
+  UpdateOne uc = uc ;
+  UpdateMultiple ucs = ucs ;
+
+  BaseUpdateCol uc1 uc2 = uc1 ++ "," ++ uc2 ;
+  ConsUpdateCol uc ucs = uc ++ "," ++ ucs ;
+
+  UpdateColWith c v = c ++ "=" ++ v ;
+
 }
