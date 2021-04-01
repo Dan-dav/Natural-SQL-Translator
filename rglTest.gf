@@ -13,11 +13,23 @@ cat
     LikeOp ;
     SortBy ;
     Order ;
+    --FromLim ;
+    --From ;
+    --Lim ;
 
 fun
     App : Mod -> Qual -> Sentence ;
     PS : Predicate -> Sentence ;
     SortS : SortBy -> Sentence ;
+    AllS : Sentence ;
+    --FLS : FromLim -> Sentence ;
+    TestS : Sentence ;
+
+    --FL : From -> Lim -> FromLim ;
+
+    --FCountry : From ;
+
+    --LAll : Lim ;
 
     ------------------------------------------
 

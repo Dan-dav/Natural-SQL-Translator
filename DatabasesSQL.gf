@@ -9,9 +9,10 @@ concrete DatabasesSQL of Databases = {
   --  } ;
 
 lincat
-  Statement, ColumnPart, FromPart, PredicatePart, Predicate, Column, 
+  Statement, ColumnPart, PredicatePart, Predicate, Column, 
   [Column], Table, CompOp, Value, [Value], Order, OrderPart, SortBy, 
-  [SortBy], LimitPart, UpdatePart, UpdateCol, [UpdateCol] = Str ;
+  [SortBy], UpdatePart, UpdateCol, [UpdateCol] = Str ;
+  FromLimPart = {from : Str ; lim : Str} ;
   LikeOp = {before : Str ; after : Str} ;
   InsertPart, InsertCol = {col : Str ; val : Str} ;
   [InsertCol] = {cols : Str ; vals : Str} ;
@@ -19,7 +20,7 @@ lincat
 lin
   -- SELECT -----------------------------
 
-  StSelect col from pred order lim = col ++ from ++ pred ++ order ++ lim ++ ";" ;
+  StSelect col fromlim pred order = col ++ fromlim.from ++ pred ++ order ++ fromlim.lim ++ ";" ;
 
   SColumnAll = "SELECT *" ;  
   SColumnOne c = "SELECT" ++ c ;
@@ -28,9 +29,12 @@ lin
   BaseColumn c1 c2 = c1 ++ "," ++ c2 ;
   ConsColumn c cs = c ++ "," ++ cs ;
 
-  ------- FROM
+  ------- FROM, LIMIT
   
-  SFromTable t = "FROM" ++ t ;
+  --SFromTable t = "FROM" ++ t ;
+
+  LimNone t = {from = "FROM" ++ t ; lim = ""} ;
+  LimNum t i = {from = "FROM" ++ t ; lim = "LIMIT" ++ i.s} ;
 
   ------- WHERE
 
@@ -77,11 +81,6 @@ lin
   OrdUnspec = "" ;
   OrdAsc = "ASC" ;
   OrdDesc = "DESC" ;
-
-  ------- LIMIT
-
-  LimNone = "" ;
-  LimNum i = "LIMIT" ++ i.s ;
 
   -- DELETE -----------------------------
 

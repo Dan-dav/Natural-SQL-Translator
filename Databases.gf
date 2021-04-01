@@ -5,7 +5,8 @@ flags startcat = Statement ;
 cat
   Statement ;
   ColumnPart ;
-  FromPart ;
+  FromLimPart ;
+  --Limit ;
   PredicatePart ;
   Predicate ;
   Column ;
@@ -19,7 +20,6 @@ cat
   OrderPart ;
   SortBy ;
   [SortBy] {2} ;
-  LimitPart ;
   InsertPart ;
   InsertCol ;
   [InsertCol] {2} ;
@@ -30,15 +30,18 @@ cat
 fun
   -- SELECT -----------------------------
   
-  StSelect : ColumnPart -> FromPart -> PredicatePart -> OrderPart -> LimitPart -> Statement ;
+  StSelect : ColumnPart -> FromLimPart -> PredicatePart -> OrderPart -> Statement ;
   
   SColumnAll : ColumnPart ;
   SColumnOne : Column -> ColumnPart ;
   SColumnMultiple : [Column] -> ColumnPart ;
   
-  ------- FROM
+  ------- FROM, LIMIT
   
-  SFromTable : Table -> FromPart ;
+  --SFromTable : Table -> Limit -> FromLimPart ;
+
+  LimNone : Table -> FromLimPart ;
+  LimNum : Table -> Int -> FromLimPart ;
 
   ------- WHERE
 
@@ -72,14 +75,9 @@ fun
   OrdAsc : Order ;
   OrdDesc : Order ;
 
-  ------- LIMIT
-
-  LimNone : LimitPart ;
-  LimNum : Int -> LimitPart ;
-
   -- DELETE -----------------------------
   
-  StDelete : FromPart -> PredicatePart -> Statement ;
+  StDelete : Table -> PredicatePart -> Statement ;
   
   -- INSERT -----------------------------
   
