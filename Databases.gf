@@ -6,7 +6,6 @@ cat
   Statement ;
   ColumnPart ;
   FromLimPart ;
-  --Limit ;
   PredicatePart ;
   Predicate ;
   Column ;
@@ -71,9 +70,7 @@ fun
 
   SortColumn : Column -> Order -> SortBy ;
 
-  OrdUnspec : Order ;
-  OrdAsc : Order ;
-  OrdDesc : Order ;
+  OrdUnspec, OrdAsc, OrdDesc : Order ;
 
   -- DELETE -----------------------------
   

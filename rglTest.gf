@@ -16,6 +16,7 @@ cat
     --FromLim ;
     --From ;
     --Lim ;
+    CompOp ;
 
 fun
     App : Mod -> Qual -> Sentence ;
@@ -24,6 +25,12 @@ fun
     AllS : Sentence ;
     --FLS : FromLim -> Sentence ;
     TestS : Sentence ;
+    OrderS : Sentence ;
+    OrderS2 : Sentence ;
+    CountryS : Sentence ;
+    NullS : CompOp -> Int -> Sentence ;
+
+    CompOpEq, CompOpGt, CompOpLt, CompOpGEq, CompOpLEq, CompOpNE : CompOp ;
 
     --FL : From -> Lim -> FromLim ;
 
