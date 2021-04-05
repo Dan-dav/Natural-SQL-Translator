@@ -1,25 +1,25 @@
-concrete DBCountriesEng of DBCountries = DatabasesEng ** {
+concrete DBCountriesEng of DBCountries = DatabasesEng ** open (D = DictEng) in {
 
 lin
 
   -- N
-  ColName = "name" ;
-  -- D.name_N ;
-  ColCapital = "capital" ;
-  -- D.capital_N ;
-  ColArea = "area" ;
-  -- D.area_N ;
-  -- otherwise try D.area_1_N
-  ColPopulation = "population" ;
-  -- D.population_N ;
-  ColContinent = "continent" ;
-  -- D.continent_N ;
-  ColCurrency = "currency" ;
-  -- D.currency_N ;
+  -- ColName = "name" ;
+  ColName = D.name_N ;
+  -- ColCapital = "capital" ;
+  ColCapital = D.capital_N ;
+  -- ColArea = "area" ;
+  ColArea = D.area_1_N ;
+  -- used to be D.area_N
+  -- ColPopulation = "population" ;
+  ColPopulation = D.population_N ;
+  -- ColContinent = "continent" ;
+  ColContinent = D.continent_N ;
+  -- ColCurrency = "currency" ;
+  ColCurrency = D.currency_N ;
   
   -- N
-  TabCountries = "countries" ;
-  -- D.country_N ;
+  -- TabCountries = "countries" ;
+  TabCountries = D.country_N ;
   -- plural?
   -- (P.mkN "country").s P.plural ;
 
