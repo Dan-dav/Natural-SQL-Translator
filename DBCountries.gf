@@ -4,8 +4,8 @@ flags startcat = Statement ;
 
 fun
   
-  ColName, ColCapital, ColArea, ColPopulation, ColContinent, ColCurrency : Column ;
+  ColName, ColCapital, ColArea, ColPopulation, ColContinent, ColCurrency, ColCode : Column ;
   
-  TabCountries : Table ;
+  TabCountries, TabCurrencies : Table ;
 
 }

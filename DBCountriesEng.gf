@@ -16,11 +16,13 @@ lin
   ColContinent = D.continent_N ;
   -- ColCurrency = "currency" ;
   ColCurrency = D.currency_N ;
+  ColCode = D.code_N ;
   
   -- N
   -- TabCountries = "countries" ;
   TabCountries = D.country_N ;
   -- plural?
   -- (P.mkN "country").s P.plural ;
+  TabCurrencies = D.currency_N ;
 
 }

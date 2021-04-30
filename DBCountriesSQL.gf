@@ -8,7 +8,9 @@ lin
   ColPopulation = "population" ;
   ColContinent = "continent" ;
   ColCurrency = "currency" ;
+  ColCode = "code" ;
   
   TabCountries = "countries" ;
+  TabCurrencies = "currencies" ;
 
 }

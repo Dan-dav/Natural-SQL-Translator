@@ -34,7 +34,7 @@ lin
   --SFromTable t = "FROM" ++ t ;
 
   LimNone t = {from = "FROM" ++ t ; lim = ""} ;
-  LimNum t i = {from = "FROM" ++ t ; lim = "LIMIT" ++ i.s} ;
+  -- LimNum t i = {from = "FROM" ++ t ; lim = "LIMIT" ++ i.s} ;
 
   ------- WHERE
 

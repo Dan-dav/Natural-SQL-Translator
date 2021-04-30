@@ -60,7 +60,7 @@ lin
   LimNone t = mkNP all_Predet (mkNP t) ;
   -- LimNum t i = "the first" ++ i.s ++ t ;
   -- N -> Int -> NP
-  LimNum t i = mkNP (mkDet the_Quant (mkNum i.s) (mkOrd (mkNumeral n1_Unit))) t ;
+  -- LimNum t i = mkNP (mkDet the_Quant (mkNum i.s) (mkOrd (mkNumeral n1_Unit))) t ;
   -- mkDet the_Quant num (mkOrd n1_Dig)
 
   ------- WHERE

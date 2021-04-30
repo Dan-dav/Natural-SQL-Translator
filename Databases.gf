@@ -40,7 +40,7 @@ fun
   --SFromTable : Table -> Limit -> FromLimPart ;
 
   LimNone : Table -> FromLimPart ;
-  LimNum : Table -> Int -> FromLimPart ;
+  -- LimNum : Table -> Int -> FromLimPart ;
 
   ------- WHERE
 
