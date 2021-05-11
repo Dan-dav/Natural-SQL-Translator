@@ -1,28 +1,24 @@
-concrete DBCountriesEng of DBCountries = DatabasesEng ** open (D = DictEng) in {
+--# -path=.:../gf-rgl/src/morphodict
+
+concrete DBCountriesEng of DBCountries = DatabasesEng ** open (P = ParadigmsEng), (D = MorphoDictEng) in {
 
 lin
 
   -- N
-  -- ColName = "name" ;
   ColName = D.name_N ;
-  -- ColCapital = "capital" ;
   ColCapital = D.capital_N ;
-  -- ColArea = "area" ;
-  ColArea = D.area_1_N ;
-  -- used to be D.area_N
-  -- ColPopulation = "population" ;
+  ColArea = D.area_N ;
   ColPopulation = D.population_N ;
-  -- ColContinent = "continent" ;
   ColContinent = D.continent_N ;
-  -- ColCurrency = "currency" ;
   ColCurrency = D.currency_N ;
   ColCode = D.code_N ;
   
   -- N
-  -- TabCountries = "countries" ;
-  TabCountries = D.country_N ;
+  TabCountries = P.mkN "countries" ;
+  --D.country_N ;
   -- plural?
   -- (P.mkN "country").s P.plural ;
-  TabCurrencies = D.currency_N ;
+  TabCurrencies = P.mkN "currencies" ;
+  --D.currency_N ;
 
 }

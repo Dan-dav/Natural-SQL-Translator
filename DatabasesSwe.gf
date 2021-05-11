@@ -1,4 +1,4 @@
-concrete DatabasesEng of Databases = open SyntaxEng, (P = ParadigmsEng), SymbolicEng, (D = MorphoDictEng) in {
+concrete DatabasesSwe of Databases = open SyntaxSwe, (P = ParadigmsSwe), SymbolicSwe, (D = MorphoDictSwe), MakeStructuralSwe in {
 
 lincat
   Statement      = Imp ;
@@ -29,7 +29,7 @@ lin
 
   -- StSelect col fromlim pred order = col ++ fromlim ++ pred ++ order ;
   -- {NP ; Prep} NP Adv Adv -> Imp
-  StSelect col fromlim pred order = mkImp (mkVP (mkVP (P.mkV2 D.display_V) (mkNP col.np (mkAdv col.prep (mkNP fromlim pred)))) order) ;
+  StSelect col fromlim pred order = mkImp (mkVP (mkVP (P.mkV2 D.visa_V) (mkNP col.np (mkAdv col.prep (mkNP fromlim pred)))) order) ;
   
   -- SColumnAll = "display all info on" ;
   -- {NP ; Prep}
@@ -68,7 +68,8 @@ lin
   PredNothing = P.mkAdv "" ;
   -- PredSomething p = "where" ++ p ;
   -- S -> Adv
-  PredSomething p = mkAdv (P.mkSubj "where") p ;
+  PredSomething p = mkAdv (mkSubj "där") p ;
+  -- (mkS där_Adv p)
 
   -- PredAnd p1 p2 = p1 ++ "and" ++ p2 ;
   -- S S -> S
@@ -92,10 +93,10 @@ lin
   PredLike c op st = mkS (mkCl (mkNP the_Det c) (mkVP op (symb st.s))) ;
   -- PredIsNull c = "the" ++ c ++ "is null" ;
   -- N -> S
-  PredIsNull c = mkS (mkCl (mkNP the_Det c) D.null_A) ;
+  PredIsNull c = mkS (mkCl (mkNP the_Det c) (P.mkA "null")) ;
   -- PredIsNotNull c = "the" ++ c ++ "is not null" ;
   -- N -> S
-  PredIsNotNull c = mkS negativePol (mkCl (mkNP the_Det c) D.null_A) ;
+  PredIsNotNull c = mkS negativePol (mkCl (mkNP the_Det c) (P.mkA "null")) ;
 
   -- ValInt i = i.s ;
   -- Int -> NP
@@ -127,11 +128,11 @@ lin
 
   -- V2
   -- LikeBegins = "begins with" ;
-  LikeBegins = P.mkV2 D.begin_1_V with_Prep ;
+  LikeBegins = P.mkV2 D.börja_V with_Prep ;
   -- LikeEnds = "ends with" ;
-  LikeEnds = P.mkV2 D.end_V with_Prep ;
+  LikeEnds = P.mkV2 D.sluta_1_V with_Prep ;
   -- LikeContains = "contains" ;
-  LikeContains = P.mkV2 D.contain_V ;
+  LikeContains = P.mkV2 D.innehålla_V ;
 
   ------- ORDER BY
 
@@ -169,7 +170,7 @@ lin
 
   -- StDelete tab pred = "delete all" ++ tab ++ pred ;
   -- N Adv -> Imp
-  StDelete tab pred = mkImp (P.mkV2 D.delete_V) (mkNP (mkNP all_Predet (mkNP tab)) pred) ;
+  StDelete tab pred = mkImp (P.mkV2 D.radera_V) (mkNP (mkNP all_Predet (mkNP thePl_Det tab)) pred) ;
 
   ------- FROM and WHERE as above
 
@@ -177,7 +178,7 @@ lin
 
   -- StInsert tab ins = "add a new entry with" ++ ins ++ "to the table" ++ tab ;
   -- N NP -> Imp
-  StInsert tab ins = mkImp (mkVP (mkVP (P.mkV2 D.add_V) (mkNP (mkNP a_Det D.row_N) (mkAdv with_Prep ins))) (mkAdv to_Prep (mkNP tab))) ;
+  StInsert tab ins = mkImp (mkVP (mkVP (P.mkV2 D.tillägga_V) (mkNP (mkNP a_Det D.rad_2_N) (mkAdv with_Prep ins))) (mkAdv to_Prep (mkNP tab))) ;
 
   -- IColValOne ic = ic ;
   -- NP -> NP
@@ -187,10 +188,10 @@ lin
   IColValMultiple ics = mkNP and_Conj ics ;
   -- IOnlyValOne v = "the value" ++ v ;
   -- NP -> NP
-  IOnlyValOne v = mkNP (mkNP the_Det D.value_N) (mkAdv P.noPrep v) ;
+  IOnlyValOne v = mkNP (mkNP the_Det D.värde_N) (mkAdv P.noPrep v) ;
   -- IOnlyValMultiple vs = "the values" ++ vs ;
   -- ListNP -> NP
-  IOnlyValMultiple vs = mkNP (mkNP thePl_Det D.value_N) (mkAdv P.noPrep (mkNP and_Conj vs)) ;
+  IOnlyValMultiple vs = mkNP (mkNP thePl_Det D.värde_N) (mkAdv P.noPrep (mkNP and_Conj vs)) ;
 
   -- BaseInsertCol ic1 ic2 = ic1 ++ "and" ++ ic2 ;
   -- NP NP -> ListNP
@@ -208,7 +209,7 @@ lin
   -- StUpdate tab upd pred = "set" ++ upd ++ "for all" ++ tab ++ pred ;
   -- "set the a to 1 , the b to 2 and the c to 3 for all countries where ..."
   -- N NP Adv -> Imp
-  StUpdate tab upd pred = mkImp (mkVP (mkVP (P.mkV2 D.set_1_V) upd) (mkAdv for_Prep (mkNP (mkNP all_Predet (mkNP tab)) pred))) ;
+  StUpdate tab upd pred = mkImp (mkVP (mkVP (P.mkV2 D.sätta_V) upd) (mkAdv for_Prep (mkNP (mkNP all_Predet (mkNP tab)) pred))) ;
 
   -- UpdateOne uc = uc ;
   -- NP -> NP

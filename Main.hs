@@ -1,56 +1,56 @@
 module Main where
 
 import PGF
+import System.Process
 
 -- to do
 -- web app
 -- have better way of choosing languages
 -- database integration
 
+postgreSQLstring = "host=localhost port=5432 dbname=countries user=postgres password=palm77fe"
+
 main :: IO ()
 main = do
-    putStr "Type something in English: "
-    s <- getLine
-    putStrLn ("English input: " ++ s)
-
+    findDBfiles "Countries"
+    callCommand "gf -make DBCountriesSQL.gf DBCountriesEng.gf"
     gr <- readPGF "DBCountries.pgf"
+
     let stCat = startCat gr
     let langs = languages gr
+    putStr "Available languages: "
     printLangs langs
 
-    let langEng = readLanguage "DBCountriesEng"
-    case langEng of
-        Nothing -> return ()
-        Just lEng -> do
-            let langSQL = readLanguage "DBCountriesSQL"
-            case langSQL of
-                Nothing -> return ()
-                Just lSQL -> do
-                    let absTrees = parse gr lEng stCat s
-                    putStr "Abstract representations: "
-                    printTrees absTrees
-                    case absTrees of
-                        [] -> return ()
-                        (at:ats) -> do
-                            putStr "SQL output: "
-                            putStrLn $ linearize gr lSQL at
+    putStr "Choose input language: "
+    from <- getLine
+    let fromLang = maybe undefined id (readLanguage from)
+    putStr "Choose output language: "
+    to <- getLine
+    let toLang = maybe undefined id (readLanguage to)
+    
+    putStr $ "Type something in the language " ++ from ++ ": "
+    s <- getLine
+    putStrLn (from ++ " input: " ++ s)
 
---init :: IO (Language, Language)
---init = do
---    let langEng = readLanguage "DBCountriesEng"
---    case langEng of
---        Nothing -> return () -- throw error?
---        Just lEng -> do
---            let langSQL = readLanguage "DBCountriesSQL"
---            case langSQL of
---                Nothing -> return () -- throw error?
---                Just lSQL -> do
---                    return (lEng, lSQL)
+    let absTrees = parse gr fromLang stCat s
+    putStr "Abstract representations: "
+    printTrees absTrees
+    case absTrees of
+        [] -> return ()
+        (at:ats) -> do
+            putStr $ to ++ " output: "
+            putStrLn $ linearize gr toLang at
+            --if (to == "DBCountriesSQL"):
+                --putStr "Send query to database? (Y/N): "
+
+findDBfiles db = 
 
 printLangs :: [Language] -> IO()
 printLangs [] = return ()
+printLangs [l] = do
+    putStrLn $ (showLanguage l)
 printLangs (l:ls) = do
-    putStrLn $ showLanguage l
+    putStr $ (showLanguage l) ++ ", "
     printLangs ls
 
 printTrees :: [Tree] -> IO()
