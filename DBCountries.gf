@@ -1,4 +1,4 @@
-abstract DBCountries = Databases ** {
+abstract DBcountries = Databases ** {
 
 flags startcat = Statement ;
 

@@ -1,4 +1,4 @@
-concrete DBCountriesSQL of DBCountries = DatabasesSQL ** {
+concrete DBcountriesSQL of DBcountries = DatabasesSQL ** {
 
 lin
 

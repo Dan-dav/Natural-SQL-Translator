@@ -12,6 +12,8 @@ extra-deps:
 - gf-3.10
 - cgi-3001.3.0.3 # dependency of gf
 - HDBC-postgresql-2.3.2.7
+- with-utf8-1.0.2.2
+- th-env-0.1.0.1
 
 flags:
      # this excludes PGF2 module in gf package

@@ -51,7 +51,7 @@ lin
   PredIsNotNull c = c ++ "IS NOT NULL" ;
 
   ValInt i = i.s ;
-  ValStr st = st.s ; -- "'" ++ st.s ++ "'" ;
+  ValStr st = st.s ; -- predef.Bind "'" ++ st.s ++ "'" ;
 
   BaseValue v1 v2 = v1 ++ "," ++ v2 ;
   ConsValue v vs = v ++ "," ++ vs ;

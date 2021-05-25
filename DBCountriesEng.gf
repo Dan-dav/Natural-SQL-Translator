@@ -1,6 +1,6 @@
 --# -path=.:../gf-rgl/src/morphodict
 
-concrete DBCountriesEng of DBCountries = DatabasesEng ** open (P = ParadigmsEng), (D = MorphoDictEng) in {
+concrete DBcountriesEng of DBcountries = DatabasesEng ** open (P = ParadigmsEng), (D = MorphoDictEng) in {
 
 lin
 

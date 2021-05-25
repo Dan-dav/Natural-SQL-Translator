@@ -12,9 +12,9 @@ postgreSQLstring = "host=localhost port=5432 dbname=countries user=postgres pass
 
 main :: IO ()
 main = do
-    findDBfiles "Countries"
-    callCommand "gf -make DBCountriesSQL.gf DBCountriesEng.gf"
-    gr <- readPGF "DBCountries.pgf"
+ --   findDBfiles "Countries"
+    callCommand "gf -make DBcountriesSQL.gf DBcountriesEng.gf"
+    gr <- readPGF "DBcountries.pgf"
 
     let stCat = startCat gr
     let langs = languages gr
@@ -43,7 +43,7 @@ main = do
             --if (to == "DBCountriesSQL"):
                 --putStr "Send query to database? (Y/N): "
 
-findDBfiles db = 
+--findDBfiles db = 
 
 printLangs :: [Language] -> IO()
 printLangs [] = return ()
