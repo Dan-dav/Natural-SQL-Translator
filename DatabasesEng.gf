@@ -28,7 +28,7 @@ lin
   -- SELECT -----------------------------
 
   -- {NP ; Prep} NP Adv Adv -> Imp
-  StSelect col fromlim pred order = mkImp (mkVP (mkVP (P.mkV2 D.display_V) (mkNP col.np (mkAdv col.prep (mkNP fromlim pred)))) order) ;
+  StSelect col fromlim pred order = mkImp (mkVP (mkVP (P.mkV2 {D.display_V | D.show_2_V}) (mkNP col.np (mkAdv col.prep (mkNP fromlim pred)))) order) ;
   
   -- {NP ; Prep}
   SColumnAll = {np = mkNP all_Predet (mkNP D.info_N) ; prep = P.mkPrep "about"} ;

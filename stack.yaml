@@ -14,6 +14,7 @@ extra-deps:
 - HDBC-postgresql-2.3.2.7
 - with-utf8-1.0.2.2
 - th-env-0.1.0.1
+- Unique-0.4.7.8
 
 flags:
      # this excludes PGF2 module in gf package

@@ -5,16 +5,17 @@ import Data.Char
 import PGF
 import System.Process
 
-import Control.Monad (liftM)
+import Control.Monad (liftM, unless)
 import Data.Maybe (fromMaybe)
 import Data.List
 import Data.List.Split
+import Data.List.Unique
 import Data.Text (pack)
 import Data.Text.IO.Utf8
 import System.Directory
 
 import Database.HDBC
-import Database.HDBC.PostgreSQL (connectPostgreSQL)
+import Database.HDBC.PostgreSQL (connectPostgreSQL, Connection)
 
 import Data.ByteString.Char8 (unpack)
 
@@ -29,18 +30,18 @@ database_page = h1 << "Database selection"
                        submit "button_id" "Add a language for this database",
                        submit "button_id" "Choose and enter translator"]
 
-language_page :: String -> [(String, String)] -> [String] -> [String] -> Html
+language_page :: String -> [String] -> [String] -> [String] -> Html
 language_page db_choice lang_list tabs cols = h1 << "Language adding"
           +++ form << ([hidden "page_id" "language",
                         hidden "db_choice" db_choice,
                         paragraph << ("Language to add for the " ++ db_choice ++ " database: " +++ (langSelector lang_list) ! [name "lang_sel"]),
-                        paragraph << ("Please type names in that language for the tables and columns of the " ++ db_choice ++ " database:"),
-                        fieldset << ([legend << ("Tables: ")] ++ tabFields tabs),
-                        fieldset << ([legend << ("Columns: ")] ++ colFields cols),
+                        paragraph << ("Please type names in that language (in singular and plural) for the tables and columns of the " ++ db_choice ++ " database:"),
+                        fieldset << ([legend << ("Tables: "), tabFieldsTable tabs]),
+                        fieldset << ([legend << ("Columns: "), colFieldsTable cols]),
                         paragraph << (reset "" "Clear all" +++ submit "button_id" "Choose another database"),
                         submit "button_id" "Submit and enter translator"])
 
-translation_page :: String -> String -> [(String, String)] -> String -> String -> String -> Html -> Html
+translation_page :: String -> String -> [String] -> String -> String -> String -> Html -> Html
 translation_page db_choice text_in lang_list lang_in lang_out text_out db_out = h1 << "Translation"
           +++ form << [hidden "page_id" "translation",
                         hidden "db_choice" db_choice,
@@ -52,10 +53,7 @@ translation_page db_choice text_in lang_list lang_in lang_out text_out db_out = 
                         paragraph << ("Send SQL code to " ++ db_choice ++ " database? " +++ submit "button_id" "Send to DB")
                         ]
           +++ fieldset << ([legend << ("Output from the database"), db_out])
-          --(textarea << db_out) ! [rows "30", cols "100"]
-          -- +++ (mkTable testTab)
-          -- +++ (simpleTable [] [] [[toHtmlFromList "a", toHtmlFromList "b"], [toHtmlFromList "c", toHtmlFromList "d"]])
-          --(toHtml $ above (beside (toHtmlFromList "table?") (toHtmlFromList "cell 2?")) (beside (toHtmlFromList "table 3?") (toHtmlFromList "cell 4?"))) -- table?
+          --(textarea << db_out) ! [rows "30", cols "100"] ???
 
 ---------------------------------------------
 -- Helpers for showing pages
@@ -72,7 +70,8 @@ page t b = header << thetitle << t +++ body << b
 ---------------------------------------------
 
 main :: IO ()
-main = runCGI $ handleErrors cgiMain
+main = do
+    runCGI $ handleErrors cgiMain
 
 cgiMain :: CGI CGIResult
 cgiMain = do page_id <- getInput "page_id"
@@ -85,21 +84,19 @@ cgiMain = do page_id <- getInput "page_id"
                              db_choice <- getInput "db_choice"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
-                             (tabs', cols') <- getTabsAndCols db_choice'
+                             (tabs', cols') <- liftIO $ getTabsAndCols db_choice'
+                             langs <- liftIO $ findGenLangs
                              -- Putting data into next page
-                             showPage $ language_page db_choice' testLangs tabs' cols'
+                             showPage $ language_page db_choice' langs tabs' cols'
                          Just "Choose and enter translator" -> do
                              -- Getting data out from prev page
                              db_choice <- getInput "db_choice"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
-                             --gr <- liftIO $ readPGF "gf-files/DBCountries.pgf"
-                             --liftIO $ callCommand "gf -make ../DBCountriesSQL.gf ../DBCountriesEng.gf"
-                             -- langs <- genPGF db_choice'
-                             -- GENERATE PGF with correct files, all available langs for it------------------------------------------------
-                             -- Get available languages for this db (names and acronyms), give to translation_page-------------------------
+                             liftIO $ genPGF db_choice'
+                             langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' "" testLangs "none" "none" "" (p << "Nothing")
+                             showPage $ translation_page db_choice' "" langs "none" "none" "" (p << "Nothing")
                          _ -> output "Error: Database page, unknown button"
                  Just "language" ->
                      case button_id of
@@ -116,23 +113,19 @@ cgiMain = do page_id <- getInput "page_id"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
                              let lang_sel' = maybe "error" id lang_sel
-                             let col_inputs' = someInputs inputs "col_"
-                             let tab_inputs' = someInputs inputs "tab_"
-                             boolTest1 <- liftIO $ doesFileExist "gf-files/DBanimalsEng.gf"
-                             -- also write gf files for abs and sql if needed--------------------------------------------------------------------
-                             liftIO $ makeGFFile db_choice' lang_sel' col_inputs' tab_inputs' -- writes/overwrites this file
-                             boolTest2 <- liftIO $ doesFileExist "gf-files/DBanimalsEng.gf"
-                             
-                             -- gr <- liftIO $ readPGF "DBanimals.pgf"
-                             -- let langs = languages gr
-                             --langName = (testLangMap ! . getLangCode) lang
-                             
-                             --liftIO $ helpTemp -- callCommand "help" -- "gf -make gf-files/DBanimalsSQL.gf" -- it returns this to the client for some reason
-                             let tempPrint = "boolTest1: " ++ show boolTest1 ++ ", boolTest2: " ++ show boolTest2 -- ++ ", x: " ++ show x -- ++ ", langs: " ++ show langs
-                             -- GENERATE PGF with correct files, all available langs for it-----------------------------------------------
-                             -- Get available languages for this db (names and acronyms), give to translation_page-------------------------
+                             let col_sing_inputs' = someInputs inputs "col_sing_"
+                             let col_plur_inputs' = someInputs inputs "col_plur_"
+                             let col_inputs' = singPlurCombine col_sing_inputs' col_plur_inputs'
+                             let tab_sing_inputs' = someInputs inputs "tab_sing_"
+                             let tab_plur_inputs' = someInputs inputs "tab_plur_"
+                             let tab_inputs' = singPlurCombine tab_sing_inputs' tab_plur_inputs'
+                             absThere <- liftIO $ doesFileExist $ "db-" ++ db_choice' ++ "/DB" ++ db_choice' ++ ".gf"
+                             liftIO $ unless absThere $ makeGFFile db_choice' Nothing col_inputs' tab_inputs' -- writing abstract and sql gf files if needed
+                             liftIO $ makeGFFile db_choice' (Just lang_sel') col_inputs' tab_inputs' -- writing/overwriting natural language gf file
+                             liftIO $ genPGF db_choice'
+                             langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' "" testLangs "none" "none" "" (p << tempPrint) --"Nothing"
+                             showPage $ translation_page db_choice' "" langs "none" "none" "" (p << "Nothing")
                          _ -> output "Error: Language page, unknown button"
                  Just "translation" ->
                      case button_id of
@@ -147,9 +140,11 @@ cgiMain = do page_id <- getInput "page_id"
                              let text_in' = maybe "error" id text_in
                              let lang_in' = maybe "error" id lang_in
                              let lang_out' = maybe "error" id lang_out
-                             text_out' <- liftIO $ translate db_choice' text_in' lang_in' lang_out'
+                             let lexed_text = lexer text_in'
+                             text_out' <- liftIO $ translate db_choice' lexed_text lang_in' lang_out'
+                             langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' text_in' testLangs lang_in' lang_out' text_out' (p << "Nothing")
+                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' text_out' (p << "Nothing")
                          Just "Choose another database" -> do
                              -- Getting data out from prev page
                              -- Peforming calculations
@@ -160,9 +155,10 @@ cgiMain = do page_id <- getInput "page_id"
                              db_choice <- getInput "db_choice"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
-                             (tabs', cols') <- getTabsAndCols db_choice'
+                             (tabs', cols') <- liftIO $ getTabsAndCols db_choice'
+                             langs <- liftIO $ findGenLangs
                              -- Putting data into next page
-                             showPage $ language_page db_choice' testLangs tabs' cols'
+                             showPage $ language_page db_choice' langs tabs' cols'
                          Just "Send to DB" -> do
                              -- Getting data out from prev page
                              db_choice <- getInput "db_choice"
@@ -176,90 +172,226 @@ cgiMain = do page_id <- getInput "page_id"
                              let lang_in' = maybe "error" id lang_in
                              let lang_out' = maybe "error" id lang_out
                              let text_out' = maybe "error" id text_out
-                             db_out' <- liftIO $ maybeSendToDB text_out
+                             db_out' <- liftIO $ maybeSendToDB db_choice' text_out
+                             langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' text_in' testLangs lang_in' lang_out' text_out' db_out'
+                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' text_out' db_out'
                          _ -> output "Error: Translation page, unknown button"
                  Nothing -> showPage $ database_page
                  _ -> output "Error: Unknown page"
 
 ---------------------------------------------
--- Temporary functions area
+-- Assembling lists of available languages
 ---------------------------------------------
 
+-- get languages which are available generally
+-- by seeing which ("Databases" ++ _ ++ ".gf") files are there
 
+findGenLangs = do
+    let dir = "gen-gf-files" -- ""
+    contents <- listDirectory dir
+    let genFiles = filter isGenNat contents
+    let langs = map genFileToLang genFiles
+    let natLangs = filter genLangFilter langs
+    return $ natLangs
+
+isGenNat name = isPrefixOf "Databases" name && isSuffixOf ".gf" name
+
+genFileToLang fileName = drop (length "Databases") $ take (length fileName - length ".gf") fileName
+
+genLangFilter "" = False
+genLangFilter "SQL" = False
+genLangFilter _ = True
+
+-- get languages which are available for a database
+-- by seeing which ("DB" ++ db ++ _ ++ ".gf") files are there
+
+findSpecLangs db = do
+    let dir = "db-" ++ db
+    contents <- listDirectory dir
+    let specFiles = filter (isSpecNat db) contents
+    let langs = map (specFileToLang db) specFiles
+    let natLangs = filter specLangFilter langs
+    return $ natLangs
+
+isSpecNat db name = isPrefixOf ("DB" ++ db) name && isSuffixOf ".gf" name
+
+specFileToLang db fileName = drop (length ("DB" ++ db)) $ take (length fileName - length ".gf") fileName
+
+specLangFilter lang | length lang == 3 = True
+specLangFilter _ = False
 
 ---------------------------------------------
--- Getting tables and columns for a database (WIP)
+-- Getting tables and columns for a database (Pretty much done?)
 ---------------------------------------------
 
 getTabsAndCols db = do
-    return (testTabs, testCols)
+    let postgresParameters = "host=localhost port=5432 dbname=" ++ db ++ " user=postgres password=palm77fe" -- lose the password ???
+    (connInteger, connStr, maybeConn) <- catchSql (connectPGHelper postgresParameters) sqlConnHandler
+    case maybeConn of
+        Nothing -> do
+            let tabs = ["conn fail"] -- ???
+            let cols = ["conn faillll"]
+            return (tabs, cols)
+        Just conn -> do
+            let tabGetting = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+            statement <- prepare conn tabGetting
+            (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler -- either -2 and error string or the num of rows affected? and "Works fine!"
+            case execInteger of
+                -2 -> do
+                    let tabs = ["tab fail"] -- ???
+                    let cols = ["col whocares"]
+                    disconnect conn
+                    return (tabs, cols)
+                _ -> do
+                    results <- sFetchAllRows' statement
+                    let tabs = concat $ processTable results
+                    colLists <- mapM (getCols conn) tabs
+                    let cols = mergeColLists colLists
+                    disconnect conn
+                    return (tabs, cols)
+
+getCols conn tab = do
+    let colGetting = "select * from " ++ tab ++ " where false;"
+    statement <- prepare conn colGetting
+    (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler -- either -2 and error string or the num of rows affected? and "Works fine!"
+    case execInteger of
+        -2 -> do
+            return ["col fail"] -- ???
+        _ -> do
+            getColumnNames statement
+
+connectPGHelper parameters = do
+    conn <- connectPostgreSQL parameters
+    return (1, "Connected fine!", Just conn)
+
+sqlConnHandler :: SqlError -> IO (Integer, String, Maybe Connection) -- any other errors to handle?
+sqlConnHandler (SqlError seState seNativeError seErrorMsg) = do
+    return (-2, seErrorMsg, Nothing)
+
+mergeColLists colLists = sortUniq $ concat colLists
+
+-- to get list of tables:
+--SELECT table_name
+--FROM information_schema.tables
+--WHERE table_schema = 'public'
+--ORDER BY table_name;
+
+-- to get list of columns, run this for each table and remove duplicates:
+--select *
+--from countries
+--where false;
 
 ---------------------------------------------
 -- PGF generation and usage (WIP)
 ---------------------------------------------
 
-helpTemp = do
-    callCommand "dir" -- "gf -make DBcountriesSQL.gf DBcountriesEng.gf"
-
 genPGF db = do
-    callCommand "gf -make ../DBCountriesSQL.gf ../DBCountriesEng.gf"
-    return ["a", "b", "c"]
+    -- see that db folder exists
+    -- raise error if not (show error screen)
+    -- also raise error if abstract or sql files aren't there
+    langs <- findSpecLangs db
+    let langFiles = map (langFile db) langs
+    a <- runProcess "gf" ("-make" : langFiles) (Just $ "db-" ++ db) Nothing Nothing Nothing Nothing
+    return ()
+
+langFile db lang = "DB" ++ db ++ lang ++ ".gf"
+
+lexer :: String -> String
+lexer s = s
+-- commas, semicolons, vals, 
+-- how are vals linearized in different langs now?
+-- upper/lower case
+-- 
 
 translate :: String -> String -> String -> String -> IO (String)
 translate db s in_l out_l = do
-    gr <- liftIO $ readPGF "../DBcountries.pgf"
+    gr <- liftIO $ readPGF $ "db-" ++ db ++ "/DB" ++ db ++ ".pgf"
     let stCat = startCat gr
-    let fromLang = maybe undefined id (readLanguage ("DBcountries" ++ in_l))
+    let fromLang = maybe undefined id (readLanguage ("DB" ++ db ++ in_l))
     let absTrees = parse gr fromLang stCat s
-    let toLang = maybe undefined id (readLanguage ("DBcountries" ++ out_l))
+    let toLang = maybe undefined id (readLanguage ("DB" ++ db ++ out_l))
     case absTrees of
-        [] -> return ("Couldn't parse")
+        [] -> return "Failed to parse"
         (at:ats) -> do
-            return (linearize gr toLang at)
-    --"translation of " ++ s ++ " from " ++ in_l ++ " to " ++ out_l
+            let output = linearize gr toLang at
+            case output of
+                "" -> return "Failed to linearize"
+                _ -> return output
 
 ---------------------------------------------
--- Temporary hardwirings (WIP)
+-- Making .gf files
 ---------------------------------------------
 
-testCols = ["name", "capital", "area", "population", "continent", "currency", "code"]
-testTabs = ["countries", "currencies"]
-testLangs = [("English", "Eng"), ("Swedish", "Swe"), ("Dutch", "Dut"), ("SQL", "SQL")]
---testLangMap = fromList [("Eng", "English"), ("Swe", "Swedish"), ("Dut", "Dutch"), ("SQL", "SQL")]
+makeGFFile :: String -> Maybe String -> [(String, String, String)] -> [(String, String, String)] -> IO ()
+makeGFFile db maybeLang cols tabs = do
+    case maybeLang of
+        Nothing -> do
+            -- create "db-" ++ db folder if it's not there
+            Data.Text.IO.Utf8.writeFile ("db-" ++ db ++ "/DB" ++ db ++ ".gf") $ pack $ makeAbsGF db cols tabs
+            Data.Text.IO.Utf8.writeFile ("db-" ++ db ++ "/DB" ++ db ++ "SQL.gf") $ pack $ makeSqlGF db cols tabs
+        Just lang -> do
+            Data.Text.IO.Utf8.writeFile ("db-" ++ db ++ "/DB" ++ db ++ lang ++ ".gf") $ pack $ makeNatGF db lang cols tabs
 
----------------------------------------------
--- Making .gf files (WIP)
----------------------------------------------
+makeAbsGF :: String -> [(String, String, String)] -> [(String, String, String)] -> String
+makeAbsGF db cols tabs = "abstract DB" 
+    ++ db ++ " = Databases ** {\n\nflags startcat = Statement ;\n\nfun\n\n  " 
+    ++ colAbsPart cols ++ " : Column ;\n\n  " 
+    ++ tabAbsPart tabs 
+    ++ " : Table ;\n\n}"
 
-makeGFFile db lang cols tabs = do
-    Data.Text.IO.Utf8.writeFile ("gf-files/DB" ++ db ++ lang ++ ".gf") (pack (gfFileContents db lang cols tabs))
+colAbsPart :: [(String, String, String)] -> String
+colAbsPart [] = ""
+colAbsPart [(n, sing, plur)] = "Col_" ++ n
+colAbsPart ((n, sing, plur):cols) = "Col_" ++ n ++ ", " ++ colAbsPart cols
 
-gfFileContents db lang cols tabs = "--# -path=.:../gf-rgl/src/morphodict\r\rconcrete DB" 
+tabAbsPart :: [(String, String, String)] -> String
+tabAbsPart [] = ""
+tabAbsPart [(n, sing, plur)] = "Tab_" ++ n
+tabAbsPart ((n, sing, plur):tabs) = "Tab_" ++ n ++ ", " ++ tabAbsPart tabs
+
+makeSqlGF :: String -> [(String, String, String)] -> [(String, String, String)] -> String
+makeSqlGF db cols tabs = "--# -path=.:../gen-gf-files\n\nconcrete DB" 
+    ++ db ++ "SQL of DB" ++ db ++ " = DatabasesSQL ** {\n\nlin\n\n" 
+    ++ colSqlPart cols ++ "\n" 
+    ++ tabSqlPart tabs 
+    ++ "\n}"
+
+colSqlPart :: [(String, String, String)] -> String
+colSqlPart [] = ""
+colSqlPart ((n, sing, plur):cols) = "  Col_" ++ n ++ " = \"" ++ n ++ "\" ;\n" ++ colSqlPart cols
+
+tabSqlPart :: [(String, String, String)] -> String
+tabSqlPart [] = ""
+tabSqlPart ((n, sing, plur):tabs) = "  Tab_" ++ n ++ " = \"" ++ n ++ "\" ;\n" ++ tabSqlPart tabs
+
+makeNatGF :: String -> String -> [(String, String, String)] -> [(String, String, String)] -> String
+makeNatGF db lang cols tabs = "--# -path=.:../gf-rgl/src/morphodict:../gen-gf-files\n\nconcrete DB" 
     ++ db ++ lang ++ " of DB" ++ db ++ " = Databases" ++ lang 
-    ++ " ** open (P = Paradigms" ++ lang ++ "), (D = MorphoDict" ++ lang 
-    ++ ") in {\r\rlin\r\r" 
-    ++ colPrint cols ++ "\r" 
-    ++ tabPrint tabs 
-    ++ "\r}"
+    ++ " ** open Syntax" ++ lang ++ ", (P = Paradigms" ++ lang ++ "), (D = MorphoDict" ++ lang 
+    ++ ") in {\n\nlin\n\n" 
+    ++ colNatPart cols ++ "\n" 
+    ++ tabNatPart tabs 
+    ++ "\n}"
 
-colPrint [] = ""
-colPrint ((n,v):cols) = "  Col_" ++ n ++ " = P.mkN \"" ++ v ++ "\" ;\r" ++ colPrint cols
+colNatPart :: [(String, String, String)] -> String
+colNatPart [] = ""
+colNatPart ((n,sing,plur):cols) = "  Col_" ++ n ++ " = mkCN (P.mkN \"" ++ sing ++ "\" \"" ++ plur ++ "\") ;\n" ++ colNatPart cols
 
-tabPrint [] = ""
-tabPrint ((n,v):tabs) = "  Tab_" ++ n ++ " = P.mkN \"" ++ v ++ "\" ;\r" ++ tabPrint tabs
+tabNatPart :: [(String, String, String)] -> String
+tabNatPart [] = ""
+tabNatPart ((n, sing, plur):tabs) = "  Tab_" ++ n ++ " = P.mkN \"" ++ sing ++ "\" \"" ++ plur ++ "\" ;\n" ++ tabNatPart tabs
 
 ---------------------------------------------
 -- Sending SQL to database, getting result (Pretty much done)
 ---------------------------------------------
 
-maybeSendToDB text_out = do
+maybeSendToDB db text_out = do
     case text_out of
-        Nothing -> return (p << "nothing to show yet1")
-        Just "" -> return (p << "nothing to show yet2")
+        Nothing -> return (p << "Nothing")
+        Just "" -> return (p << "Nothing")
         Just text_out' -> do
-            let postgresParameters = "host=localhost port=5432 dbname=countries user=postgres"
+            let postgresParameters = "host=localhost port=5432 dbname=" ++ db ++ " user=postgres password=palm77fe" -- lose the password ???
             conn <- connectPostgreSQL postgresParameters
             statement <- prepare conn text_out'
             (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler
@@ -294,11 +426,6 @@ processCell :: Maybe String -> String
 processCell (Just val) = val
 processCell Nothing = "[null]"
 
---testTable = [
---    [Just "top left", Just "top", Just "top right"],
---    [Just "left", Just "middle", Just "right"],
---    [Just "bottom left", Just "bottom", Just "bottom right"]]
-
 --------
 
 --prettyTable [] = ""
@@ -320,41 +447,46 @@ mkHtmlRow theRow = tr << (map mkHtmlCell theRow)
 mkHtmlCell :: String -> Html
 mkHtmlCell cell = td << cell
 
---testTab = [["a", "brrrrrrrrrrrrrrrr"], ["cdddddddddddddddd", "d"]]
-
 ---------------------------------------------
--- Getting the data input on the language page (Done?)
+-- Getting the data input on the language page
 ---------------------------------------------
 
 someInputs :: [(String, String)] -> String -> [(String, String)]
 someInputs [] _ = []
-someInputs ((n,v):is) beg | isFieldBeg beg (n,v) = [(extractName n, map toLower v)] ++ someInputs is beg
+someInputs ((n,v):is) beg | isFieldBeg beg (n,v) = [(drop (length beg) n, map toLower v)] ++ someInputs is beg
                           | otherwise = someInputs is beg
-
---isColField = isFieldBeg "col_"
---isTabField = isFieldBeg "tab_"
 
 isFieldBeg beg (name, value) = isPrefixOf beg name
 
-extractName n = (splitOn "_" n) !! 1
+extractName beg n = drop (length beg) n -- (splitOn "_" n) !! 1
+
+--[(area, yta), (capital, huvudstad)] [(area, ytor), (capital, huvudstäder)] = [(area, yta, ytor), (capital, huvudstad, huvudstäder)]
+singPlurCombine [] _ = []
+singPlurCombine (sing:sings) plurs = (singPlurOne sing plurs) : (singPlurCombine sings plurs)
+
+singPlurOne (sing_n, sing_v) [] = (sing_n, sing_v, sing_v) -- using singular as plural too if not found
+singPlurOne (sing_n, sing_v) ((plur_n, plur_v):plurs) | sing_n == plur_n = (sing_n, sing_v, plur_v)
+                                                      | otherwise = singPlurOne (sing_n, sing_v) plurs
 
 ---------------------------------------------
--- Putting together parts of Html pages (Done?)
+-- Putting together parts of Html pages
 ---------------------------------------------
 
-colFields [] = []
-colFields (c:cs) = [paragraph << (c ++ " " +++ (textfield ("col_" ++ c ++ "_input") ! [value $ map toLower c]))] ++ colFields cs
+colFieldsTable cs = table << tbody << ([tr << [td << "", td << "Singular", td << "Plural"]] ++ (map colFields cs))
 
-tabFields [] = []
-tabFields (c:cs) = [paragraph << (c ++ " " +++ (textfield ("tab_" ++ c ++ "_input") ! [value $ map toLower c]))] ++ tabFields cs
+colFields c = tr << [td << c, td << (textfield ("col_sing_" ++ c) ! [value $ map toLower c]), td << (textfield ("col_plur_" ++ c))]
 
-langSelector :: [(String, String)] -> Html
+tabFieldsTable ts = table << tbody << ([tr << [td << "", td << "Singular", td << "Plural"]] ++ (map tabFields ts))
+
+tabFields t = tr << [td << t, td << (textfield ("tab_sing_" ++ t)), td << (textfield ("tab_plur_" ++ t) ! [value $ map toLower t])]
+
+langSelector :: [String] -> Html
 langSelector ls = langSelectorChosen ls "none"
 
-langSelectorChosen :: [(String, String)] -> String -> Html
+langSelectorChosen :: [String] -> String -> Html
 langSelectorChosen ls chosen = select << map (langSelHelper chosen) ls
 
-langSelHelper :: String -> (String, String) -> Html
-langSelHelper chosen (name, abbr) = if (abbr == chosen)
-                                    then (option << name) ! [value abbr, selected]
-                                    else (option << name) ! [value abbr]
+langSelHelper :: String -> String -> Html
+langSelHelper chosen lang = if (lang == chosen)
+                            then (option << lang) ! [value lang, selected]
+                            else (option << lang) ! [value lang]

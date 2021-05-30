@@ -24,5 +24,7 @@ executable Main
     xhtml,
     split,
     with-utf8,
-    text
+    text,
+    Unique,
+    directory
   default-language: Haskell2010
