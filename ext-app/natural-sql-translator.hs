@@ -5,8 +5,8 @@ import Data.Char
 import PGF
 import System.Process
 
-import Control.Monad (liftM, unless)
-import Data.Maybe (fromMaybe)
+import Control.Monad (liftM, unless, when)
+import Data.Maybe (fromMaybe, isJust)
 import Data.List
 import Data.List.Split
 import Data.List.Unique
@@ -41,8 +41,8 @@ language_page db_choice lang_list tabs cols = h1 << "Language adding"
                         paragraph << (reset "" "Clear all" +++ submit "button_id" "Choose another database"),
                         submit "button_id" "Submit and enter translator"])
 
-translation_page :: String -> String -> [String] -> String -> String -> String -> Html -> Html
-translation_page db_choice text_in lang_list lang_in lang_out text_out db_out = h1 << "Translation"
+translation_page :: String -> String -> [String] -> String -> String -> String -> Bool -> Html -> Html
+translation_page db_choice text_in lang_list lang_in lang_out text_out commit_choice db_out = h1 << "Translation"
           +++ form << [hidden "page_id" "translation",
                         hidden "db_choice" db_choice,
                         (paragraph << ("From: " +++ (langSelectorChosen lang_list lang_in) ! [name "in_sel"] +++ " To: " +++ (langSelectorChosen lang_list lang_out) ! [name "out_sel"])),
@@ -50,10 +50,15 @@ translation_page db_choice text_in lang_list lang_in lang_out text_out db_out = 
                         submit "button_id" "Translate",
                         paragraph << ("Output: " +++ (textfield "out_field") ! [value text_out, size "100"]),
                         paragraph << ("Using the database: " ++ db_choice ++ " " +++ submit "button_id" "Choose another database" +++ submit "button_id" "Add a language for this database"),
-                        paragraph << ("Send SQL code to " ++ db_choice ++ " database? " +++ submit "button_id" "Send to DB")
+                        paragraph << ("Send SQL code to " ++ db_choice ++ " database: " +++ submit "button_id" "Send to DB" 
+                            +++ "   Also commit changes: " +++ (checkbox "commit_box" "ticked") ! (commitState commit_choice))
                         ]
           +++ fieldset << ([legend << ("Output from the database"), db_out])
           --(textarea << db_out) ! [rows "30", cols "100"] ???
+
+commitState :: Bool -> [HtmlAttr]
+commitState True = [checked]
+commitState False = []
 
 ---------------------------------------------
 -- Helpers for showing pages
@@ -96,7 +101,7 @@ cgiMain = do page_id <- getInput "page_id"
                              liftIO $ genPGF db_choice'
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' "" langs "none" "none" "" (p << "Nothing")
+                             showPage $ translation_page db_choice' "" langs "none" "none" "" False (p << "Nothing")
                          _ -> output "Error: Database page, unknown button"
                  Just "language" ->
                      case button_id of
@@ -125,7 +130,7 @@ cgiMain = do page_id <- getInput "page_id"
                              liftIO $ genPGF db_choice'
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' "" langs "none" "none" "" (p << "Nothing")
+                             showPage $ translation_page db_choice' "" langs "none" "none" "" False (p << "Nothing")
                          _ -> output "Error: Language page, unknown button"
                  Just "translation" ->
                      case button_id of
@@ -135,16 +140,18 @@ cgiMain = do page_id <- getInput "page_id"
                              text_in <- getInput "in_field"
                              lang_in <- getInput "in_sel"
                              lang_out <- getInput "out_sel"
+                             commit_box <- getInput "commit_box"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
                              let text_in' = maybe "error" id text_in
                              let lang_in' = maybe "error" id lang_in
                              let lang_out' = maybe "error" id lang_out
+                             let commit_choice = isJust commit_box
                              let lexed_text = lexer text_in'
                              text_out' <- liftIO $ translate db_choice' lexed_text lang_in' lang_out'
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' text_out' (p << "Nothing")
+                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' text_out' commit_choice (p << "Nothing")
                          Just "Choose another database" -> do
                              -- Getting data out from prev page
                              -- Peforming calculations
@@ -166,16 +173,18 @@ cgiMain = do page_id <- getInput "page_id"
                              lang_in <- getInput "in_sel"
                              lang_out <- getInput "out_sel"
                              text_out <- getInput "out_field"
+                             commit_box <- getInput "commit_box"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
                              let text_in' = maybe "error" id text_in
                              let lang_in' = maybe "error" id lang_in
                              let lang_out' = maybe "error" id lang_out
                              let text_out' = maybe "error" id text_out
-                             db_out' <- liftIO $ maybeSendToDB db_choice' text_out
+                             let commit_choice = isJust commit_box
+                             db_out' <- liftIO $ maybeSendToDB db_choice' text_out commit_choice
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' text_out' db_out'
+                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' text_out' commit_choice db_out'
                          _ -> output "Error: Translation page, unknown button"
                  Nothing -> showPage $ database_page
                  _ -> output "Error: Unknown page"
@@ -186,7 +195,6 @@ cgiMain = do page_id <- getInput "page_id"
 
 -- get languages which are available generally
 -- by seeing which ("Databases" ++ _ ++ ".gf") files are there
-
 findGenLangs = do
     let dir = "gen-gf-files" -- ""
     contents <- listDirectory dir
@@ -205,7 +213,6 @@ genLangFilter _ = True
 
 -- get languages which are available for a database
 -- by seeing which ("DB" ++ db ++ _ ++ ".gf") files are there
-
 findSpecLangs db = do
     let dir = "db-" ++ db
     contents <- listDirectory dir
@@ -222,7 +229,7 @@ specLangFilter lang | length lang == 3 = True
 specLangFilter _ = False
 
 ---------------------------------------------
--- Getting tables and columns for a database (Pretty much done?)
+-- Getting tables and columns for a database
 ---------------------------------------------
 
 getTabsAndCols db = do
@@ -234,7 +241,7 @@ getTabsAndCols db = do
             let cols = ["conn faillll"]
             return (tabs, cols)
         Just conn -> do
-            let tabGetting = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"
+            let tabGetting = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" -- get list of tables
             statement <- prepare conn tabGetting
             (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler -- either -2 and error string or the num of rows affected? and "Works fine!"
             case execInteger of
@@ -246,8 +253,8 @@ getTabsAndCols db = do
                 _ -> do
                     results <- sFetchAllRows' statement
                     let tabs = concat $ processTable results
-                    colLists <- mapM (getCols conn) tabs
-                    let cols = mergeColLists colLists
+                    colLists <- mapM (getCols conn) tabs -- getting the columns in each table
+                    let cols = mergeColLists colLists -- removing duplicate columns
                     disconnect conn
                     return (tabs, cols)
 
@@ -271,19 +278,8 @@ sqlConnHandler (SqlError seState seNativeError seErrorMsg) = do
 
 mergeColLists colLists = sortUniq $ concat colLists
 
--- to get list of tables:
---SELECT table_name
---FROM information_schema.tables
---WHERE table_schema = 'public'
---ORDER BY table_name;
-
--- to get list of columns, run this for each table and remove duplicates:
---select *
---from countries
---where false;
-
 ---------------------------------------------
--- PGF generation and usage (WIP)
+-- PGF generation and usage
 ---------------------------------------------
 
 genPGF db = do
@@ -325,9 +321,9 @@ translate db s in_l out_l = do
 
 makeGFFile :: String -> Maybe String -> [(String, String, String)] -> [(String, String, String)] -> IO ()
 makeGFFile db maybeLang cols tabs = do
+    createDirectoryIfMissing False $ "db-" ++ db -- check if folder exists, if not create it
     case maybeLang of
         Nothing -> do
-            -- create "db-" ++ db folder if it's not there
             Data.Text.IO.Utf8.writeFile ("db-" ++ db ++ "/DB" ++ db ++ ".gf") $ pack $ makeAbsGF db cols tabs
             Data.Text.IO.Utf8.writeFile ("db-" ++ db ++ "/DB" ++ db ++ "SQL.gf") $ pack $ makeSqlGF db cols tabs
         Just lang -> do
@@ -342,13 +338,13 @@ makeAbsGF db cols tabs = "abstract DB"
 
 colAbsPart :: [(String, String, String)] -> String
 colAbsPart [] = ""
-colAbsPart [(n, sing, plur)] = "Col_" ++ n
-colAbsPart ((n, sing, plur):cols) = "Col_" ++ n ++ ", " ++ colAbsPart cols
+colAbsPart [(n, sing, plur)] = "Col_" ++ (loseSpaces n)
+colAbsPart ((n, sing, plur):cols) = "Col_" ++ (loseSpaces n) ++ ", " ++ colAbsPart cols
 
 tabAbsPart :: [(String, String, String)] -> String
 tabAbsPart [] = ""
-tabAbsPart [(n, sing, plur)] = "Tab_" ++ n
-tabAbsPart ((n, sing, plur):tabs) = "Tab_" ++ n ++ ", " ++ tabAbsPart tabs
+tabAbsPart [(n, sing, plur)] = "Tab_" ++ (loseSpaces n)
+tabAbsPart ((n, sing, plur):tabs) = "Tab_" ++ (loseSpaces n) ++ ", " ++ tabAbsPart tabs
 
 makeSqlGF :: String -> [(String, String, String)] -> [(String, String, String)] -> String
 makeSqlGF db cols tabs = "--# -path=.:../gen-gf-files\n\nconcrete DB" 
@@ -359,11 +355,11 @@ makeSqlGF db cols tabs = "--# -path=.:../gen-gf-files\n\nconcrete DB"
 
 colSqlPart :: [(String, String, String)] -> String
 colSqlPart [] = ""
-colSqlPart ((n, sing, plur):cols) = "  Col_" ++ n ++ " = \"" ++ n ++ "\" ;\n" ++ colSqlPart cols
+colSqlPart ((n, sing, plur):cols) = "  Col_" ++ (loseSpaces n) ++ " = \"" ++ n ++ "\" ;\n" ++ colSqlPart cols
 
 tabSqlPart :: [(String, String, String)] -> String
 tabSqlPart [] = ""
-tabSqlPart ((n, sing, plur):tabs) = "  Tab_" ++ n ++ " = \"" ++ n ++ "\" ;\n" ++ tabSqlPart tabs
+tabSqlPart ((n, sing, plur):tabs) = "  Tab_" ++ (loseSpaces n) ++ " = \"" ++ n ++ "\" ;\n" ++ tabSqlPart tabs
 
 makeNatGF :: String -> String -> [(String, String, String)] -> [(String, String, String)] -> String
 makeNatGF db lang cols tabs = "--# -path=.:../gf-rgl/src/morphodict:../gen-gf-files\n\nconcrete DB" 
@@ -376,17 +372,22 @@ makeNatGF db lang cols tabs = "--# -path=.:../gf-rgl/src/morphodict:../gen-gf-fi
 
 colNatPart :: [(String, String, String)] -> String
 colNatPart [] = ""
-colNatPart ((n,sing,plur):cols) = "  Col_" ++ n ++ " = mkCN (P.mkN \"" ++ sing ++ "\" \"" ++ plur ++ "\") ;\n" ++ colNatPart cols
+colNatPart ((n,sing,plur):cols) = "  Col_" ++ (loseSpaces n) ++ " = mkCN (P.mkN \"" ++ sing ++ "\" \"" ++ plur ++ "\") ;\n" ++ colNatPart cols
 
 tabNatPart :: [(String, String, String)] -> String
 tabNatPart [] = ""
-tabNatPart ((n, sing, plur):tabs) = "  Tab_" ++ n ++ " = P.mkN \"" ++ sing ++ "\" \"" ++ plur ++ "\" ;\n" ++ tabNatPart tabs
+tabNatPart ((n, sing, plur):tabs) = "  Tab_" ++ (loseSpaces n) ++ " = P.mkN \"" ++ sing ++ "\" \"" ++ plur ++ "\" ;\n" ++ tabNatPart tabs
+
+loseSpaces n = map loseSpace n
+
+loseSpace ' ' = '_'
+loseSpace c = c
 
 ---------------------------------------------
--- Sending SQL to database, getting result (Pretty much done)
+-- Sending SQL to database, getting result
 ---------------------------------------------
 
-maybeSendToDB db text_out = do
+maybeSendToDB db text_out commit_choice = do
     case text_out of
         Nothing -> return (p << "Nothing")
         Just "" -> return (p << "Nothing")
@@ -395,14 +396,17 @@ maybeSendToDB db text_out = do
             conn <- connectPostgreSQL postgresParameters
             statement <- prepare conn text_out'
             (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler
-            results <- sFetchAllRows' statement
-            resColNames <- getColumnNames statement
-            let processedResults = processTable results
-            --let prettyResults = prettyTable processedResults
-            disconnect conn
             case execInteger of
-                -2 -> return $ (textarea << ("Error:\n" ++ execString)) ! [rows "5", cols "100"]
-                _ -> return $ (mkHtmlTable resColNames processedResults) --prettyResults
+                -2 -> do
+                    disconnect conn
+                    return $ (textarea << ("Error:\n" ++ execString)) ! [rows "5", cols "100"]
+                _ -> do
+                    results <- sFetchAllRows' statement
+                    resColNames <- getColumnNames statement
+                    let processedResults = processTable results
+                    when commit_choice $ commit conn
+                    disconnect conn
+                    return $ (mkHtmlTable resColNames processedResults execInteger)
 
 --------
 
@@ -438,8 +442,8 @@ processCell Nothing = "[null]"
 
 --------
 -- Merge these with process ones above ???
-mkHtmlTable :: [String] -> [[String]] -> Html
-mkHtmlTable colNames theTable = table << tbody << map mkHtmlRow ([colNames, replicate (length colNames) "-----"] ++ theTable)
+mkHtmlTable :: [String] -> [[String]] -> Integer -> Html
+mkHtmlTable colNames theTable affectedRows = table << tbody << map mkHtmlRow ([["Result: " ++ show affectedRows ++ " rows were modified"], colNames, replicate (length colNames) "-----"] ++ theTable)
 
 mkHtmlRow :: [String] -> Html
 mkHtmlRow theRow = tr << (map mkHtmlCell theRow)
@@ -460,7 +464,7 @@ isFieldBeg beg (name, value) = isPrefixOf beg name
 
 extractName beg n = drop (length beg) n -- (splitOn "_" n) !! 1
 
---[(area, yta), (capital, huvudstad)] [(area, ytor), (capital, huvudstäder)] = [(area, yta, ytor), (capital, huvudstad, huvudstäder)]
+--[(area, yta), (capital, huvudstad)] [(area, ytor), (capital, huvudstäder)] -> [(area, yta, ytor), (capital, huvudstad, huvudstäder)]
 singPlurCombine [] _ = []
 singPlurCombine (sing:sings) plurs = (singPlurOne sing plurs) : (singPlurCombine sings plurs)
 

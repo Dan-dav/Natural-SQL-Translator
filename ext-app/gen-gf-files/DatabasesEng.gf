@@ -5,34 +5,60 @@ lincat
   Query          = NP ;
   ColumnPart     = {np : NP ; prep : Prep} ;
   FromLimPart    = NP ;
+  JoinType       = {l : Det ; r : Det} ;
   TabCol         = CN ;
-  PredicatePart  = Adv ;
-  Predicate      = S ;
   Column         = CN ;
   [Column]       = ListNP ;
-  Table          = N ;
-  CompOp         = Prep ;
+  PredicatePart  = Adv ;
+  Predicate      = S ;
   Value          = NP ;
   [Value]        = ListNP ;
+  CompOp         = Prep ;
   LikeOp         = V2 ;
-  Order          = Adv ;
   OrderPart      = Adv ;
   SortBy         = NP ;
   [SortBy]       = ListNP ;
-  InsertPart     = NP ;
+  Order          = Adv ;
+  InsertPart     = Adv ;
   InsertCol      = NP ;
   [InsertCol]    = ListNP ;
   UpdatePart     = NP ;
   UpdateCol      = NP ;
   [UpdateCol]    = ListNP ;
+  Table          = N ;
+
+-- param JT = JTInner | JTLeft | JTRight | JTFull ;
+--oper
+--  joinChoiceL : CN -> (Str => NP) = \tc -> table {
+--    "Inner" => (mkNP the_Det tc) ;
+--    "Left" => (mkNP all_Predet (mkNP tc)) ;
+--    "Right" => (mkNP the_Det tc) ;
+--    "Full" => (mkNP all_Predet (mkNP tc))
+--  } ;
+--  joinChoiceR : Str -> CN -> NP = \jt,tc -> table {
+--    "Inner" => (mkNP the_Det tc) ;
+--    "Left" => (mkNP the_Det tc) ;
+--    "Right" => (mkNP all_Predet (mkNP tc)) ;
+--    "Full" => (mkNP all_Predet (mkNP tc))
+--  } ! jt ;
+  --joinChoiceR : JT -> CN -> NP = \jt,tc -> table {
+  --  JTInner => (mkNP the_Det tc) ;
+  --  JTLeft => (mkNP the_Det tc) ;
+  --  JTRight => (mkNP all_Predet (mkNP tc)) ;
+  --  JTFull => (mkNP all_Predet (mkNP tc))
+  --} ! jt ;
 
 lin
   -- Query statements, UNION, INTERSECT ----
 
   -- NP -> Imp
-  StQuery q = variants {mkImp (P.mkV2 (P.mkV "")) q ; 
-                        mkImp (P.mkV2 D.display_V) q ; 
-                        mkImp (P.mkV2 D.show_2_V) q} ;
+  StQuery q = variants {
+    mkImp (P.mkV2 (P.mkV "")) q ;
+    mkImp (P.mkV2 D.display_V) q ;
+    mkImp (P.mkV2 D.show_2_V) q ;
+    mkImp (P.mkV2 (P.partV D.show_2_V "me")) q
+    -- give me also?
+    } ;
 
   -- NP NP -> NP
   QUnion q1 q2 = mkNP and_Conj q1 q2 ;
@@ -47,10 +73,17 @@ lin
   QSelect col fromlim pred order = mkNP (mkNP col.np (mkAdv col.prep (mkNP fromlim pred))) order ;
   
   -- {NP ; Prep}
-  SColumnAll = variants{{np = mkNP all_Predet (mkNP D.info_N) ; prep = P.mkPrep "about"} ;
-                        {np = mkNP (P.mkN "") ; prep = P.noPrep}} ;
+  SColumnAll = variants{
+    {np = mkNP all_Predet (mkNP D.info_N) ; prep = P.mkPrep "about"} ;
+    {np = mkNP (P.mkN "") ; prep = P.noPrep}
+    } ;
   -- CN -> {NP ; Prep}
-  SColumnOne c = {np = mkNP the_Det c ; prep = possess_Prep} ;
+  SColumnOne c = variants {
+    {np = mkNP the_Det c ; prep = possess_Prep} ; -- the name of | names of ?
+    {np = mkNP aSg_Det c ; prep = possess_Prep} ;
+    {np = mkNP thePl_Det c ; prep = possess_Prep} ;
+    {np = mkNP aPl_Det c ; prep = possess_Prep}
+    } ;
   -- ListNP -> {NP ; Prep}
   SColumnMultiple cs = {np = mkNP and_Conj cs ; prep = possess_Prep} ;
   -- {NP ; Prep}
@@ -65,37 +98,58 @@ lin
   SColumnSum c = {np = mkNP the_Det (mkCN D.total_A c) ; prep = possess_Prep} ;
 
   -- CN CN -> ListNP
-  BaseColumn c1 c2 = mkListNP (mkNP the_Det c1) (mkNP the_Det c2) ;
+  BaseColumn c1 c2 = variants {
+    mkListNP (mkNP c1) (mkNP c2) ;
+    mkListNP (mkNP c1) (mkNP the_Det c2) ;
+    mkListNP (mkNP the_Det c1) (mkNP c2) ;
+    mkListNP (mkNP the_Det c1) (mkNP the_Det c2)
+    } ;
   -- only have one "the" in the beginning?
   -- CN ListNP -> ListNP
-  ConsColumn c cs = mkListNP (mkNP the_Det c) cs ;
+  ConsColumn c cs = variants {
+    mkListNP (mkNP c) cs ;
+    mkListNP (mkNP the_Det c) cs
+    } ;
 
   ------- FROM, LIMIT
 
   --SFromTable t l = l ++ t ;
 
   -- N -> NP
-  FromTab t = mkNP all_Predet (mkNP aPl_Det t) ;
+  FromTab t = variants {
+    mkNP all_Predet (mkNP aPl_Det t) ;
+    mkNP thePl_Det t ;
+    mkNP aPl_Det t ;
+    mkNP theSg_Det t ;
+    mkNP aSg_Det t
+    -- every t?
+    } ;
   -- N -> Int -> NP
   -- FromTabLim t i = mkNP (mkDet the_Quant (mkNum i.s) (mkOrd (mkNumeral n1_Unit))) t ;
   -- mkDet the_Quant num (mkOrd n1_Dig)
   -- (the first 5/five countries)/(the 5/five first countries)
-  -- JoinType? CN CN -> NP
-  -- FromJoin jt tc1 tc2 = ? ;
-  -- CN CN -> NP
-  FromJoinInner tc1 tc2 = mkNP (mkNP aPl_Det D.entry_N) (mkAdv with_Prep (mkNP (mkNP the_Det tc1) (mkAdv (P.mkPrep "matched with") (mkNP the_Det tc2)))) ;
 
---(mkNP the_Det tc2)
+  -- FromJoinInner tc1 tc2 = mkNP (mkNP aPl_Det D.entry_N) (mkAdv with_Prep (mkNP (mkNP the_Det tc1) (mkAdv (P.mkPrep "matched with") (mkNP the_Det tc2)))) ;
+
+  -- {Det ; Det} CN CN -> NP
+  FromJoin jt tc1 tc2 = variants {
+    mkNP (mkNP aPl_Det D.entry_N) (mkAdv with_Prep (mkNP (mkNP jt.l tc1) (mkAdv (P.mkPrep "matched with") (mkNP jt.r tc2)))) ;
+    mkNP (mkNP jt.l tc1) (mkAdv (P.mkPrep "matched with") (mkNP jt.r tc2))
+    } ;
+
   ------- JOIN
 
-  -- CN -> CN -> {NP ; NP} JoinType?
-  --JInner = {left = ? ; right = ?} ;
-  --JLeft = ? ;
-  --JRight = ? ;
-  --JFull = ? ;
+  -- {Det ; Det} -- the_Det/thePl_Det/aPl_Det/aSg_Det
+  JInner = {l = the_Det ; r = the_Det} ;
+  JLeft = {l = every_Det ; r = the_Det} ;
+  JRight = {l = the_Det ; r = every_Det} ;
+  JFull = {l = every_Det ; r = every_Det} ;
 
   -- N CN -> CN
-  JTabCol t c = mkCN c (mkAdv possess_Prep (mkNP t)) ; -- aPl_Det t
+  JTabCol t c = variants {
+    mkCN c (mkAdv possess_Prep (mkNP aSg_Det t)) ; -- aPl_Det t
+    mkCN c (mkAdv possess_Prep (mkNP theSg_Det t))
+    } ;
 
   -- CN -> CN
   ColumnTabCol tc = tc ;
@@ -125,6 +179,14 @@ lin
   PredIsNull c = mkS (mkCl (mkNP the_Det c) D.null_A) ;
   -- CN -> S
   PredIsNotNull c = mkS negativePol (mkCl (mkNP the_Det c) D.null_A) ;
+  -- CN NP -> S --  Column -> Query -> Predicate ;
+  PredSubQuery c q = variants {
+    mkS (mkCl (mkNP the_Det c) (mkNP (mkNP (mkDet (mkNumeral n1_Unit))) (mkAdv part_Prep q))) ;
+    mkS (mkCl (mkNP the_Det c) q)
+    } ;
+  -- the c is one of q
+  -- "the countries where (the capital is one of the names of all countries)" (preferred?)
+  -- "the countries where (the capital is the name of a country)"
 
   -- Int -> NP
   ValInt i = symb i ;
@@ -175,23 +237,51 @@ lin
   -- DELETE --------------------------------
 
   -- N Adv -> Imp
-  StDelete tab pred = mkImp (P.mkV2 D.delete_V) (mkNP (mkNP all_Predet (mkNP tab)) pred) ;
+  StDelete tab pred = mkImp (P.mkV2 D.delete_V) (mkNP (mkNP all_Predet (mkNP aPl_Det tab)) pred) ;
 
   ------- FROM and WHERE as above
 
   -- INSERT --------------------------------
 
   -- N NP -> Imp
-  StInsert tab ins = mkImp (mkVP (mkVP (P.mkV2 D.add_V) (mkNP (mkNP a_Det D.row_N) (mkAdv with_Prep ins))) (mkAdv to_Prep (mkNP tab))) ;
+  StInsert tab ins = variants {
+    mkImp (mkVP (P.mkV2 D.add_V) (mkNP (mkNP aSg_Det tab) ins)) ;
+    mkImp (mkVP (P.mkV2 D.add_V) (mkNP (mkNP aPl_Det tab) ins))
+    -- mkImp (mkVP (P.mkV2 D.add_V) (mkNP (mkNP aSg_Det tab) (mkAdv with_Prep ins))) ;
+    -- mkImp (mkVP (mkVP (P.mkV2 D.add_V) (mkNP (mkNP a_Det D.row_N) (mkAdv with_Prep ins))) (mkAdv to_Prep (mkNP aPl_Det tab))) ;
+    -- mkImp (mkVP (mkVP (P.mkV2 D.add_V) (mkNP (mkNP a_Det D.entry_N) (mkAdv with_Prep ins))) (mkAdv to_Prep (mkNP aPl_Det tab)))
+    } ;
+    -- "add a country with ins"
 
   -- NP -> NP
-  IColValOne ic = ic ;
+  IColValOne ic = mkAdv with_Prep ic ;
   -- ListNP -> NP
-  IColValMultiple ics = mkNP and_Conj ics ;
+  IColValMultiple ics = mkAdv with_Prep (mkNP and_Conj ics) ;
   -- NP -> NP
-  IOnlyValOne v = mkNP (mkNP the_Det D.value_N) (mkAdv P.noPrep v) ;
+  IOnlyValOne v = mkAdv with_Prep (mkNP (mkNP the_Det D.value_N) (mkAdv P.noPrep v)) ;
   -- ListNP -> NP
-  IOnlyValMultiple vs = mkNP (mkNP thePl_Det D.value_N) (mkAdv P.noPrep (mkNP and_Conj vs)) ;
+  IOnlyValMultiple vs = mkAdv with_Prep (mkNP (mkNP thePl_Det D.value_N) (mkAdv P.noPrep (mkNP and_Conj vs))) ;
+  -- NP -> NP
+  ISubQuery q = variants { -- (with values) from q
+    mkAdv with_Prep (mkNP (mkNP aPl_Det D.value_N) (mkAdv from_Prep q)) ;
+    mkAdv from_Prep q ;
+    mkAdv for_Prep q
+    } ;
+  -- NP CN -> NP
+  ISubQueryColOne q c = variants { -- with/by c from q -- aPL and aSg ?
+    mkAdv by8means_Prep (mkNP (mkNP c) (mkAdv from_Prep q)) ;
+    mkAdv with_Prep (mkNP (mkNP c) (mkAdv from_Prep q))
+    } ;
+  -- NP ListNP -> NP
+  ISubQueryColMultiple q cs = variants { -- with/by cs from q
+    mkAdv by8means_Prep (mkNP (mkNP and_Conj cs) (mkAdv from_Prep q)) ;
+    mkAdv with_Prep (mkNP (mkNP and_Conj cs) (mkAdv from_Prep q))
+    } ;
+  -- "take the currencies where the name is Krona and add them to the name and continent of countries"
+  -- "add the currencies where the name is Krona to the name and continent of countries"
+  -- "add countries with/by name and continent from the currencies where the name is Krona"
+  -- "add countries with/by name from the currencies where the name is Krona"
+  -- "add countries (with values) from the currencies where the name is Krona"
 
   -- NP NP -> ListNP
   BaseInsertCol ic1 ic2 = mkListNP ic1 ic2 ;
@@ -200,12 +290,13 @@ lin
 
   -- CN NP -> NP
   InsertColWith c v = mkNP (mkNP the_Det c) (mkAdv P.noPrep v) ;
+  -- the c v | the c of v | the c set to v | the c as v
 
   -- UPDATE --------------------------------
 
   -- "set the a to 1 , the b to 2 and the c to 3 for all countries where ..."
   -- N NP Adv -> Imp
-  StUpdate tab upd pred = mkImp (mkVP (mkVP (P.mkV2 D.set_1_V) upd) (mkAdv for_Prep (mkNP (mkNP all_Predet (mkNP tab)) pred))) ;
+  StUpdate tab upd pred = mkImp (mkVP (mkVP (P.mkV2 D.set_1_V) upd) (mkAdv for_Prep (mkNP (mkNP all_Predet (mkNP aPl_Det tab)) pred))) ;
 
   -- NP -> NP
   UpdateOne uc = uc ;

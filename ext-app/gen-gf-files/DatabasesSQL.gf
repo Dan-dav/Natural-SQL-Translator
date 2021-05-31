@@ -9,13 +9,13 @@ concrete DatabasesSQL of Databases = {
   --  } ;
 
 lincat
-  Statement, Query, ColumnPart, PredicatePart, Predicate, Column, 
-  [Column], Table, CompOp, Value, [Value], Order, OrderPart, SortBy, 
-  [SortBy], UpdatePart, UpdateCol, [UpdateCol] = Str ;
+  Statement, Query, ColumnPart, JoinType, Column, 
+  [Column], PredicatePart, Predicate, Value, [Value], CompOp, OrderPart, SortBy, 
+  [SortBy], Order, UpdatePart, UpdateCol, [UpdateCol], Table, InsertPart = Str ;
   FromLimPart = {from : Str ; lim : Str} ;
   TabCol = {tab : Str ; col : Str} ;
   LikeOp = {before : Str ; after : Str} ;
-  InsertPart, InsertCol = {col : Str ; val : Str} ;
+  InsertCol = {col : Str ; val : Str} ;
   [InsertCol] = {cols : Str ; vals : Str} ;
 
 lin
@@ -50,20 +50,19 @@ lin
 
   FromTab t = {from = "FROM" ++ t ; lim = ""} ;
   -- FromTabLim t i = {from = "FROM" ++ t ; lim = "LIMIT" ++ i.s} ;
-  FromJoinInner tc1 tc2 = {from = "FROM" ++ tc1.tab ++ "INNER JOIN" ++ tc2.tab ++ "ON" ++ tc1.tab ++ "." ++ tc1.col ++ "=" ++ tc2.tab ++ "." ++ tc2.col ; lim = ""} ;
+  -- FromJoinInner tc1 tc2 = {from = "FROM" ++ tc1.tab ++ "INNER JOIN" ++ tc2.tab ++ "ON" ++ tc1.tab ++ "." ++ tc1.col ++ "=" ++ tc2.tab ++ "." ++ tc2.col ; lim = ""} ;
+
+  FromJoin jt tc1 tc2 = {from = "FROM" ++ tc1.tab ++ jt ++ "JOIN" ++ tc2.tab ++ "ON" ++ tc1.tab ++ "." ++ tc1.col ++ "=" ++ tc2.tab ++ "." ++ tc2.col ; lim = ""} ;
 
   ------- JOIN
 
-  -- CN -> CN -> {NP ; NP} JoinType?
-  --JInner = {left = ? ; right = ?} ;
-  --JLeft = ? ;
-  --JRight = ? ;
-  --JFull = ? ;
+  JInner = "INNER" ;
+  JLeft = "LEFT" ;
+  JRight = "RIGHT" ;
+  JFull = "FULL" ;
 
-  -- N CN -> CN
   JTabCol t c = {tab = t ; col = c} ;
 
-  -- CN -> CN
   ColumnTabCol tc = tc.tab ++ "." ++ tc.col ;
 
   ------- WHERE
@@ -79,6 +78,8 @@ lin
   PredLike c op st = c ++ "LIKE" ++ op.before ++ st.s ++ op.after ;
   PredIsNull c = c ++ "IS NULL" ;
   PredIsNotNull c = c ++ "IS NOT NULL" ;
+  -- Column -> Query -> Predicate ;
+  PredSubQuery c q = c ++ "IN (" ++ q ++ ")" ;
 
   ValInt i = i.s ;
   ValStr st = st.s ; -- predef.Bind "'" ++ st.s ++ "'" ;
@@ -114,18 +115,21 @@ lin
 
   -- DELETE -----------------------------
 
-  StDelete from pred = "DELETE" ++ from ++ pred ++ ";" ;
+  StDelete from pred = "DELETE FROM" ++ from ++ pred ++ ";" ;
 
   ------- FROM and WHERE as above
 
   -- INSERT -----------------------------
 
-  StInsert tab ins = "INSERT INTO" ++ tab ++ ins.col ++ "VALUES" ++ ins.val ++ ";" ;
+  StInsert tab ins = "INSERT INTO" ++ tab ++ ins ++ ";" ;
 
-  IColValOne ic = {col = "(" ++ ic.col ++ ")"; val = "(" ++ ic.val ++ ")"} ;
-  IColValMultiple ics = {col = "(" ++ ics.cols ++ ")"; val = "(" ++ ics.vals ++ ")"} ;
-  IOnlyValOne v = {col = ""; val = "(" ++ v ++ ")"} ;
-  IOnlyValMultiple vs = {col = ""; val = "(" ++ vs ++ ")"} ;
+  IColValOne ic = "(" ++ ic.col ++ ") VALUES (" ++ ic.val ++ ")" ;
+  IColValMultiple ics = "(" ++ ics.cols ++ ") VALUES (" ++ ics.vals ++ ")" ;
+  IOnlyValOne v = "VALUES (" ++ v ++ ")" ;
+  IOnlyValMultiple vs = "VALUES (" ++ vs ++ ")" ;
+  ISubQuery q = q ;
+  ISubQueryColOne q c = "(" ++ c ++ ")" ++ q ;
+  ISubQueryColMultiple q cs = "(" ++ cs ++ ")" ++ q ;
 
   BaseInsertCol ic1 ic2 = {cols = ic1.col ++ "," ++ ic2.col; vals = ic1.val ++ "," ++ ic2.val} ;
   ConsInsertCol ic ics = {cols = ic.col ++ "," ++ ics.cols; vals = ic.val ++ "," ++ ics.vals} ;

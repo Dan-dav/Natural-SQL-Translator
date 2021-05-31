@@ -9,25 +9,25 @@ cat
   FromLimPart ;
   JoinType ;
   TabCol ;
-  PredicatePart ;
-  Predicate ;
   Column ;
   [Column] {2} ;
-  Table ;
-  CompOp ;
+  PredicatePart ;
+  Predicate ;
   Value ;
   [Value] {2} ;
+  CompOp ;
   LikeOp ;
-  Order ;
   OrderPart ;
   SortBy ;
   [SortBy] {2} ;
+  Order ;
   InsertPart ;
   InsertCol ;
   [InsertCol] {2} ;
   UpdatePart ;
   UpdateCol ;
   [UpdateCol] {2} ;
+  Table ;
 
 fun
   -- Query statements, UNION, INTERSECT ----
@@ -59,18 +59,13 @@ fun
 
   FromTab : Table -> FromLimPart ;
   -- FromTabLim : Table -> Int -> FromLimPart ;
-  FromJoinInner : TabCol -> TabCol -> FromLimPart ;
-  -- FromJoinLeft
-  -- FromJoinRight
-  -- FromJoinFull
-  -- FromJoinInnerLim
-  -- FromJoinLeftLim
-  -- FromJoinRightLim
-  -- FromJoinFullLim
+  -- FromJoinInner : TabCol -> TabCol -> FromLimPart ;
+  FromJoin : JoinType -> TabCol -> TabCol -> FromLimPart ;
+  -- FromJoinLim
 
   ------- JOIN
 
-  -- JInner, JLeft, JRight, JFull : JoinType ;
+  JInner, JLeft, JRight, JFull : JoinType ;
 
   JTabCol : Table -> Column -> TabCol ;
 
@@ -89,6 +84,7 @@ fun
   PredLike : Column -> LikeOp -> String -> Predicate ;
   PredIsNull : Column -> Predicate ;
   PredIsNotNull : Column -> Predicate ;
+  PredSubQuery : Column -> Query -> Predicate ;
 
   ValInt : Int -> Value ;
   ValStr : String -> Value ;
@@ -118,6 +114,9 @@ fun
   IColValMultiple : [InsertCol] -> InsertPart ;
   IOnlyValOne : Value -> InsertPart ;
   IOnlyValMultiple : [Value] -> InsertPart ;
+  ISubQuery : Query -> InsertPart ;
+  ISubQueryColOne : Query -> Column -> InsertPart ;
+  ISubQueryColMultiple : Query -> [Column] -> InsertPart ;
 
   InsertColWith : Column -> Value -> InsertCol ;
   
