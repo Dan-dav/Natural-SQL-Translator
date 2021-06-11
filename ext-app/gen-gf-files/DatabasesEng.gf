@@ -1,7 +1,7 @@
 concrete DatabasesEng of Databases = open SyntaxEng, (P = ParadigmsEng), SymbolicEng, (D = MorphoDictEng) in {
 
 lincat
-  Statement      = Imp ;
+  Statement      = Utt ;
   Query          = NP ;
   ColumnPart     = {np : NP ; prep : Prep} ;
   FromLimPart    = NP ;
@@ -27,37 +27,16 @@ lincat
   [UpdateCol]    = ListNP ;
   Table          = N ;
 
--- param JT = JTInner | JTLeft | JTRight | JTFull ;
---oper
---  joinChoiceL : CN -> (Str => NP) = \tc -> table {
---    "Inner" => (mkNP the_Det tc) ;
---    "Left" => (mkNP all_Predet (mkNP tc)) ;
---    "Right" => (mkNP the_Det tc) ;
---    "Full" => (mkNP all_Predet (mkNP tc))
---  } ;
---  joinChoiceR : Str -> CN -> NP = \jt,tc -> table {
---    "Inner" => (mkNP the_Det tc) ;
---    "Left" => (mkNP the_Det tc) ;
---    "Right" => (mkNP all_Predet (mkNP tc)) ;
---    "Full" => (mkNP all_Predet (mkNP tc))
---  } ! jt ;
-  --joinChoiceR : JT -> CN -> NP = \jt,tc -> table {
-  --  JTInner => (mkNP the_Det tc) ;
-  --  JTLeft => (mkNP the_Det tc) ;
-  --  JTRight => (mkNP all_Predet (mkNP tc)) ;
-  --  JTFull => (mkNP all_Predet (mkNP tc))
-  --} ! jt ;
-
 lin
   -- Query statements, UNION, INTERSECT ----
 
-  -- NP -> Imp
+  -- NP -> Utt
   StQuery q = variants {
-    mkImp (P.mkV2 (P.mkV "")) q ;
-    mkImp (P.mkV2 D.display_V) q ;
-    mkImp (P.mkV2 D.show_2_V) q ;
-    mkImp (P.mkV2 (P.partV D.show_2_V "me")) q
-    -- give me also?
+    mkUtt q ;
+    mkUtt (mkImp (P.mkV2 D.display_V) q) ;
+    mkUtt (mkImp (P.mkV2 D.show_2_V) q) ;
+    mkUtt (mkImp (P.mkV2 (P.partV D.show_2_V "me")) q) ; -- give me also?
+    mkUtt (mkQCl (what_IP) q)
     } ;
 
   -- NP NP -> NP
@@ -67,8 +46,6 @@ lin
 
   -- SELECT --------------------------------
 
-  -- {NP ; Prep} NP Adv Adv -> Imp
-  --StSelect col fromlim pred order = mkImp (P.mkV2 D.display_V) (mkNP (mkNP col.np (mkAdv col.prep (mkNP fromlim pred))) order) ;
   -- {NP ; Prep} NP Adv Adv -> NP
   QSelect col fromlim pred order = mkNP (mkNP col.np (mkAdv col.prep (mkNP fromlim pred))) order ;
   
@@ -79,7 +56,7 @@ lin
     } ;
   -- CN -> {NP ; Prep}
   SColumnOne c = variants {
-    {np = mkNP the_Det c ; prep = possess_Prep} ; -- the name of | names of ?
+    {np = mkNP the_Det c ; prep = possess_Prep} ;
     {np = mkNP aSg_Det c ; prep = possess_Prep} ;
     {np = mkNP thePl_Det c ; prep = possess_Prep} ;
     {np = mkNP aPl_Det c ; prep = possess_Prep}
@@ -92,9 +69,12 @@ lin
   SColumnCountCol c = {np = mkNP (mkNP the_Det D.number_N) (mkAdv possess_Prep (mkNP aPl_Det c)) ; prep = possess_Prep} ;
   SColumnCountDistinct c = {np = mkNP (mkNP the_Det D.number_N) (mkAdv possess_Prep (mkNP aPl_Det (mkCN D.distinct_A c))) ; prep = possess_Prep} ;
   -- ListNP -> {NP ; Prep}
-  --not in postgres SColumnCountDistinctMultiple cs = {np = mkNP (mkNP the_Det D.number_N) (mkAdv possess_Prep (mkNP (mkNP aPl_Det (mkCN D.distinct_A D.set_N)) (mkAdv possess_Prep (mkNP and_Conj cs)))) ; prep = possess_Prep} ;
+  -- not in postgres: SColumnCountDistinctMultiple cs = {np = mkNP (mkNP the_Det D.number_N) (mkAdv possess_Prep (mkNP (mkNP aPl_Det (mkCN D.distinct_A D.set_N)) (mkAdv possess_Prep (mkNP and_Conj cs)))) ; prep = possess_Prep} ;
   -- CN -> {NP ; Prep}
-  SColumnAvg c = {np = mkNP the_Det (mkCN D.average_A c) ; prep = possess_Prep} ;
+  SColumnAvg c = variants {
+    {np = mkNP the_Det (mkCN D.average_A c) ; prep = possess_Prep} ;
+    {np = mkNP the_Det (mkCN D.mean_A c) ; prep = possess_Prep}
+    } ;
   SColumnSum c = {np = mkNP the_Det (mkCN D.total_A c) ; prep = possess_Prep} ;
 
   -- CN CN -> ListNP
@@ -121,11 +101,15 @@ lin
     mkNP thePl_Det t ;
     mkNP aPl_Det t ;
     mkNP theSg_Det t ;
-    mkNP aSg_Det t
-    -- every t?
+    mkNP aSg_Det t ;
+    mkNP every_Det t
     } ;
   -- N -> Int -> NP
   -- FromTabLim t i = mkNP (mkDet the_Quant (mkNum i.s) (mkOrd (mkNumeral n1_Unit))) t ;
+  FromTabLim t i = variants {
+    mkNP (mkDet the_Quant (mkNum (<symb i : Card>)) (mkOrd (mkNumeral n1_Unit))) t ;
+    mkNP (<symb i : Card>) t
+    } ;
   -- mkDet the_Quant num (mkOrd n1_Dig)
   -- (the first 5/five countries)/(the 5/five first countries)
 
@@ -191,7 +175,7 @@ lin
   -- Int -> NP
   ValInt i = symb i ;
   -- String -> NP
-  ValStr st = symb st ;
+  ValStr st = symb ("'" ++ st.s ++ "'") ;
 
   -- NP NP -> ListNP
   BaseValue v1 v2 = mkListNP v1 v2 ;
@@ -236,17 +220,17 @@ lin
 
   -- DELETE --------------------------------
 
-  -- N Adv -> Imp
-  StDelete tab pred = mkImp (P.mkV2 D.delete_V) (mkNP (mkNP all_Predet (mkNP aPl_Det tab)) pred) ;
+  -- N Adv -> Utt
+  StDelete tab pred = mkUtt (mkImp (P.mkV2 D.delete_V) (mkNP (mkNP all_Predet (mkNP aPl_Det tab)) pred)) ;
 
   ------- FROM and WHERE as above
 
   -- INSERT --------------------------------
 
-  -- N NP -> Imp
+  -- N NP -> Utt
   StInsert tab ins = variants {
-    mkImp (mkVP (P.mkV2 D.add_V) (mkNP (mkNP aSg_Det tab) ins)) ;
-    mkImp (mkVP (P.mkV2 D.add_V) (mkNP (mkNP aPl_Det tab) ins))
+    mkUtt (mkImp (mkVP (P.mkV2 D.add_V) (mkNP (mkNP aSg_Det tab) ins))) ;
+    mkUtt (mkImp (mkVP (P.mkV2 D.add_V) (mkNP (mkNP aPl_Det tab) ins)))
     -- mkImp (mkVP (P.mkV2 D.add_V) (mkNP (mkNP aSg_Det tab) (mkAdv with_Prep ins))) ;
     -- mkImp (mkVP (mkVP (P.mkV2 D.add_V) (mkNP (mkNP a_Det D.row_N) (mkAdv with_Prep ins))) (mkAdv to_Prep (mkNP aPl_Det tab))) ;
     -- mkImp (mkVP (mkVP (P.mkV2 D.add_V) (mkNP (mkNP a_Det D.entry_N) (mkAdv with_Prep ins))) (mkAdv to_Prep (mkNP aPl_Det tab)))
@@ -295,8 +279,8 @@ lin
   -- UPDATE --------------------------------
 
   -- "set the a to 1 , the b to 2 and the c to 3 for all countries where ..."
-  -- N NP Adv -> Imp
-  StUpdate tab upd pred = mkImp (mkVP (mkVP (P.mkV2 D.set_1_V) upd) (mkAdv for_Prep (mkNP (mkNP all_Predet (mkNP aPl_Det tab)) pred))) ;
+  -- N NP Adv -> Utt
+  StUpdate tab upd pred = mkUtt (mkImp (mkVP (mkVP (P.mkV2 D.set_1_V) upd) (mkAdv for_Prep (mkNP (mkNP all_Predet (mkNP aPl_Det tab)) pred)))) ;
 
   -- NP -> NP
   UpdateOne uc = uc ;

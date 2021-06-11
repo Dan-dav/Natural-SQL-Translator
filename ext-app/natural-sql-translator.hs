@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe, isJust)
 import Data.List
 import Data.List.Split
 import Data.List.Unique
-import Data.Text (pack)
+import Data.Text (pack, replace, unpack)
 import Data.Text.IO.Utf8
 import System.Directory
 
@@ -45,11 +45,15 @@ translation_page :: String -> String -> [String] -> String -> String -> String -
 translation_page db_choice text_in lang_list lang_in lang_out text_out commit_choice db_out = h1 << "Translation"
           +++ form << [hidden "page_id" "translation",
                         hidden "db_choice" db_choice,
-                        (paragraph << ("From: " +++ (langSelectorChosen lang_list lang_in) ! [name "in_sel"] +++ " To: " +++ (langSelectorChosen lang_list lang_out) ! [name "out_sel"])),
-                        (paragraph << ("Input: " +++ (textfield "in_field") ! [value text_in, size "100"])),
-                        submit "button_id" "Translate",
-                        paragraph << ("Output: " +++ (textfield "out_field") ! [value text_out, size "100"]),
                         paragraph << ("Using the database: " ++ db_choice ++ " " +++ submit "button_id" "Choose another database" +++ submit "button_id" "Add a language for this database"),
+                        (paragraph << ("From: " +++ (langSelectorChosen lang_list lang_in) ! [name "in_sel"] +++ " To: " +++ (langSelectorChosen lang_list lang_out) ! [name "out_sel"])),
+                        p << "Input:",
+                        p << (textarea << text_in) ! [rows "5", cols "100", name "in_field"],
+                        --(paragraph << ("Input: " +++ (textfield "in_field") ! [value text_in, size "100"])),
+                        submit "button_id" "Translate",
+                        p << "Output:",
+                        p << (textarea << text_out) ! [rows "5", cols "100", name "out_field"],
+                        --paragraph << ("Output: " +++ (textfield "out_field") ! [value text_out, size "100"]),
                         paragraph << ("Send SQL code to " ++ db_choice ++ " database: " +++ submit "button_id" "Send to DB" 
                             +++ "   Also commit changes: " +++ (checkbox "commit_box" "ticked") ! (commitState commit_choice))
                         ]
@@ -147,11 +151,12 @@ cgiMain = do page_id <- getInput "page_id"
                              let lang_in' = maybe "error" id lang_in
                              let lang_out' = maybe "error" id lang_out
                              let commit_choice = isJust commit_box
-                             let lexed_text = lexer text_in'
-                             text_out' <- liftIO $ translate db_choice' lexed_text lang_in' lang_out'
+                             let lexed_text_in = lexerIn lang_in' text_in'
+                             text_out' <- liftIO $ translate db_choice' lexed_text_in lang_in' lang_out'
+                             let lexed_text_out = lexerOut lang_out' text_out'
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' text_out' commit_choice (p << "Nothing")
+                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' lexed_text_out commit_choice (p << ("lexed_text_in: " ++ lexed_text_in)) -- (p << "Nothing")
                          Just "Choose another database" -> do
                              -- Getting data out from prev page
                              -- Peforming calculations
@@ -293,13 +298,6 @@ genPGF db = do
 
 langFile db lang = "DB" ++ db ++ lang ++ ".gf"
 
-lexer :: String -> String
-lexer s = s
--- commas, semicolons, vals, 
--- how are vals linearized in different langs now?
--- upper/lower case
--- 
-
 translate :: String -> String -> String -> String -> IO (String)
 translate db s in_l out_l = do
     gr <- liftIO $ readPGF $ "db-" ++ db ++ "/DB" ++ db ++ ".pgf"
@@ -314,6 +312,79 @@ translate db s in_l out_l = do
             case output of
                 "" -> return "Failed to linearize"
                 _ -> return output
+
+---------------------------------------------
+-- Lexing
+---------------------------------------------
+
+-- punctuation etc., spacing
+-- upper/lower case
+-- SQL keywords
+-- vals (not changing case, not altering punctuation/spacing)
+
+lexerIn :: String -> String -> String -- every other is not val and val
+lexerIn "SQL" s = concat $ intersperse "'" $ applyEveryOther (splitOn "'" s) sqlInLex spaceHider
+lexerIn _ s = concat $ intersperse "'" $ applyEveryOther (splitOn "'" s) natInLex spaceHider
+
+lexerOut :: String -> String -> String -- every other is not val and val
+lexerOut lang s = concat $ intersperse "'" $ applyEveryOther (splitOn "'" s) prettifyPunctuation spaceShower
+
+-- applyEveryOther makes it so one function is applied to non-val parts, and another to val parts
+applyEveryOther :: [String] -> (String -> String) -> (String -> String) -> [String]
+applyEveryOther [] f1 f2 = []
+applyEveryOther [s1] f1 f2 = [f1 s1]
+applyEveryOther (s1:s2:ss) f1 f2 = (f1 s1):(f2 s2):(applyEveryOther ss f1 f2)
+
+-- making everything lower case except for the SQL keywords which are made upper case, spacing punctuation for gf
+sqlInLex :: String -> String
+sqlInLex s = tail $ init $ upperKeywords $ " " ++ (separatePunctuation $ map toLower s) ++ " "
+
+-- making everything lower case, spacing punctuation for gf
+natInLex :: String -> String
+natInLex s = separatePunctuation $ map toLower s
+
+---
+
+spaceHider :: String -> String -- switches from actual space character to replacement code for space
+spaceHider s = " " ++ (Data.Text.unpack $ replace (pack " ") (pack "%SPACE%") (pack s)) ++ " "
+
+spaceShower :: String -> String -- switches from replacement code for space to actual space character
+spaceShower s = Data.Text.unpack $ replace (pack "%SPACE%") (pack " ") (pack $ tail $ init s)
+
+---
+
+upperKeywords :: String -> String
+upperKeywords s = foldl upKWOne s sqlKeywords
+
+upKWOne :: String -> String -> String -- for each keyword in s, make it upper case
+upKWOne s kw = Data.Text.unpack $ replace (pack (" " ++ kw ++ " ")) (pack (map toUpper (" " ++ kw ++ " "))) (pack s)
+
+sqlKeywords = ["union", "all", "intersect", "select", "count", "avg", "sum", "distinct", 
+    "from", "limit", "join", "on", "inner", "left", "right", "full", "where", "and", "or", 
+    "in", "between", "like", "is", "null", "not", "order", "by", "asc", "desc", "delete", 
+    "insert", "into", "values", "update", "set"]
+
+---
+
+separatePunctuation :: String -> String
+separatePunctuation s = do
+    foldl sepPuncOne s sepPuncList
+
+sepPuncOne :: String -> String -> String -- for each p in s, surround it with spaces
+sepPuncOne s p = Data.Text.unpack $ replace (pack p) (pack (" " ++ p ++ " ")) (pack s)
+
+sepPuncList = [";", "*", "(", ")", ",", ".", "=", ">", "<", ">=", "<=", "<>", "%'", "'%"] -- "'"
+
+---
+
+prettifyPunctuation :: String -> String
+prettifyPunctuation s = do
+    foldl prettifyPuncOne s prettyPuncList
+
+prettifyPuncOne :: String -> (String, String) -> String -- for each p in s, switch from ugly to pretty look
+prettifyPuncOne s (p_ugly,p_pretty) = Data.Text.unpack $ replace (pack p_ugly) (pack p_pretty) (pack s)
+
+prettyPuncList = [(" , ", ", "), (" . ", "."), (" ( ", " ("), (" ) ", ") ")]
 
 ---------------------------------------------
 -- Making .gf files

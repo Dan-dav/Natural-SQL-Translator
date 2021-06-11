@@ -40,16 +40,15 @@ fun
 
   -- SELECT --------------------------------
   
-  --StSelect : ColumnPart -> FromLimPart -> PredicatePart -> OrderPart -> Statement ;
   QSelect : ColumnPart -> FromLimPart -> PredicatePart -> OrderPart -> Query ;
   
   SColumnAll : ColumnPart ;
   SColumnOne : Column -> ColumnPart ;
   SColumnMultiple : [Column] -> ColumnPart ;
-  SColumnCount : ColumnPart ; -- or include ability to use columns and distinct
+  SColumnCount : ColumnPart ;
   SColumnCountCol : Column -> ColumnPart ;
   SColumnCountDistinct : Column -> ColumnPart ;
-  --SColumnCountDistinctMultiple : [Column] -> ColumnPart ;
+  -- not in postgres: SColumnCountDistinctMultiple : [Column] -> ColumnPart ;
   SColumnAvg : Column -> ColumnPart ;
   SColumnSum : Column -> ColumnPart ;
   
@@ -58,8 +57,7 @@ fun
   --SFromTable : Table -> Limit -> FromLimPart ;
 
   FromTab : Table -> FromLimPart ;
-  -- FromTabLim : Table -> Int -> FromLimPart ;
-  -- FromJoinInner : TabCol -> TabCol -> FromLimPart ;
+  FromTabLim : Table -> Int -> FromLimPart ;
   FromJoin : JoinType -> TabCol -> TabCol -> FromLimPart ;
   -- FromJoinLim
 
