@@ -24,31 +24,6 @@ lincat
   UpdateCol      = NP ;
   [UpdateCol]    = ListNP ;
 
--- parameters
---  show_V2  -- (P.mkV2 {D.display_V | D.show_2_V}) ;
---  infor_N
---  about_Prep
---  where_Subj
---  null_A
---  begin_V2
---  end_V2
---  contain_V2
---  delete_V2
---  add_V2
---  row_N
---  value_N
---  set_V2 
---  at_least_Prep
---  at_most_Prep
---  not_Prep
---  ordered_by_Prep
---  ascending_Adv
---  descending_Adv
-
--- exceptions in Swe
---  LimNone
---  
-
 lin
   -- SELECT -----------------------------
 
@@ -82,7 +57,7 @@ lin
   ------- WHERE
 
   -- Adv
-  PredNothing = P.mkAdv "" ;
+  PredNothing = noAdv ;
   -- S -> Adv
   PredSomething p = mkAdv where_Subj p ;
 
@@ -116,7 +91,7 @@ lin
   ConsValue v vs = mkListNP v vs ;
 
   -- Prep
-  CompOpEq = P.noPrep ;
+  CompOpEq = noPrep ;
   CompOpGt = above_Prep ;
   CompOpLt = under_Prep ;
   CompOpGEq = at_least_Prep ;
@@ -131,7 +106,7 @@ lin
   ------- ORDER BY
 
   -- Adv
-  OrdNothing = P.mkAdv "" ;
+  OrdNothing = noAdv ;
   -- NP -> Adv
   OrdOne sb = mkAdv ordered_by_Prep sb ;
   -- ListNP -> Adv
@@ -147,7 +122,7 @@ lin
   SortColumn c o = mkNP (mkNP c) o ;
 
   -- Adv
-  OrdUnspec = P.mkAdv "" ;
+  OrdUnspec = noAdv ;
   OrdAsc = ascending_Adv ;
   OrdDesc = descending_Adv ;
 
@@ -168,9 +143,9 @@ lin
   -- ListNP -> NP
   IColValMultiple ics = mkNP and_Conj ics ;
   -- NP -> NP
-  IOnlyValOne v = mkNP (mkNP the_Det value_N) (mkAdv P.noPrep v) ;
+  IOnlyValOne v = mkNP (mkNP the_Det value_N) (mkAdv noPrep v) ;
   -- ListNP -> NP
-  IOnlyValMultiple vs = mkNP (mkNP thePl_Det value_N) (mkAdv P.noPrep (mkNP and_Conj vs)) ;
+  IOnlyValMultiple vs = mkNP (mkNP thePl_Det value_N) (mkAdv noPrep (mkNP and_Conj vs)) ;
 
   -- NP NP -> ListNP
   BaseInsertCol ic1 ic2 = mkListNP ic1 ic2 ;
@@ -178,7 +153,7 @@ lin
   ConsInsertCol ic ics = mkListNP ic ics ;
 
   -- N NP -> NP
-  InsertColWith c v = mkNP (mkNP the_Det c) (mkAdv P.noPrep v) ;
+  InsertColWith c v = mkNP (mkNP the_Det c) (mkAdv noPrep v) ;
 
   -- UPDATE -----------------------------
 
