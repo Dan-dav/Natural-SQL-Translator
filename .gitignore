@@ -4,7 +4,6 @@
 *.hi
 .stack-work/
 network-3.1.2.1/
-others code/
 ext-app/gf-3.10/
 ext-app/gf-rgl/
 ext-app/web.config

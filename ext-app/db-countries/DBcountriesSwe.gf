@@ -15,16 +15,4 @@ lin
   Tab_countries = D.land_2_N ;
   Tab_currencies = D.valuta_N ;
 
-
---  Col_area = mkCN (P.mkN "yta" "ytor") ;
---  Col_capital = mkCN (P.mkN "huvudstad" "huvudstäder") ;
---  Col_code = mkCN (P.mkN "kod" "koder") ;
---  Col_continent = mkCN (P.mkN "kontinent" "kontinenter") ;
---  Col_currency = mkCN (P.mkN "valuta" "valutor") ;
---  Col_name = mkCN (P.mkN "namn" "namn") ;
---  Col_population = mkCN (P.mkN "befolkning" "befolkningar") ;
-
---  Tab_countries = P.mkN "land" "länder" ;
---  Tab_currencies = P.mkN "valuta" "valutor" ;
-
 }
