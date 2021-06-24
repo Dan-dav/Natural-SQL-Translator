@@ -1,23 +1,36 @@
 import Network.CGI
 import Text.XHtml
+
+import Control.Monad (unless, when)
+import Data.Maybe (isJust)
+
 import Data.Char
+import Data.Text (pack, replace, unpack)
+import Data.Text.IO.Utf8
 
-import PGF
-import System.Process
-
-import Control.Monad (liftM, unless, when)
-import Data.Maybe (fromMaybe, isJust)
 import Data.List
 import Data.List.Split
 import Data.List.Unique
-import Data.Text (pack, replace, unpack)
-import Data.Text.IO.Utf8
+
 import System.Directory
+import System.Process
+
+import PGF
 
 import Database.HDBC
 import Database.HDBC.PostgreSQL (connectPostgreSQL, Connection)
 
-import Data.ByteString.Char8 (unpack)
+---------------------------------------------
+-- To Do
+---------------------------------------------
+
+-- Errors: --
+-- errors to handle (getTabsAndCols can't find db, genPGF doesn't have the files it needs, maybeSendToDB errors) (return int with status, handle with case statement)
+-- some errors could direct to an error screen, with what went wrong and a button back to database choice
+
+-- Various: --
+-- hide printout of pgf generation (what it normally prints to terminal)
+-- if having more sizes of natural language outputs with variants, implement user choice of which size they want to see
 
 ---------------------------------------------
 -- Html Pages
@@ -27,13 +40,17 @@ database_page :: Html
 database_page = h1 << "Database selection"
           +++ form << [hidden "page_id" "database",
                        paragraph << ("Database to be used: " +++ textfield "db_choice"),
+                       paragraph << ("Username: " +++ textfield "username"),
+                       paragraph << ("Password: " +++ password "password"),
                        submit "button_id" "Add a language for this database",
                        submit "button_id" "Choose and enter translator"]
 
-language_page :: String -> [String] -> [String] -> [String] -> Html
-language_page db_choice lang_list tabs cols = h1 << "Language adding"
+language_page :: String -> String -> String -> [String] -> [String] -> [String] -> Html
+language_page db_choice username password lang_list tabs cols = h1 << "Language adding"
           +++ form << ([hidden "page_id" "language",
                         hidden "db_choice" db_choice,
+                        hidden "username" username,
+                        hidden "password" password,
                         paragraph << ("Language to add for the " ++ db_choice ++ " database: " +++ (langSelector lang_list) ! [name "lang_sel"]),
                         paragraph << ("Please type names in that language (in singular and plural) for the tables and columns of the " ++ db_choice ++ " database:"),
                         fieldset << ([legend << ("Tables: "), tabFieldsTable tabs]),
@@ -41,24 +58,23 @@ language_page db_choice lang_list tabs cols = h1 << "Language adding"
                         paragraph << (reset "" "Clear all" +++ submit "button_id" "Choose another database"),
                         submit "button_id" "Submit and enter translator"])
 
-translation_page :: String -> String -> [String] -> String -> String -> String -> Bool -> Html -> Html
-translation_page db_choice text_in lang_list lang_in lang_out text_out commit_choice db_out = h1 << "Translation"
+translation_page :: String -> String -> String -> String -> [String] -> String -> String -> String -> Bool -> Html -> Html
+translation_page db_choice username password text_in lang_list lang_in lang_out text_out commit_choice db_out = h1 << "Translation"
           +++ form << [hidden "page_id" "translation",
                         hidden "db_choice" db_choice,
+                        hidden "username" username,
+                        hidden "password" password,
                         paragraph << ("Using the database: " ++ db_choice ++ " " +++ submit "button_id" "Choose another database" +++ submit "button_id" "Add a language for this database"),
                         (paragraph << ("From: " +++ (langSelectorChosen lang_list lang_in) ! [name "in_sel"] +++ " To: " +++ (langSelectorChosen lang_list lang_out) ! [name "out_sel"])),
                         p << "Input:",
                         p << (textarea << text_in) ! [rows "5", cols "100", name "in_field"],
-                        --(paragraph << ("Input: " +++ (textfield "in_field") ! [value text_in, size "100"])),
                         submit "button_id" "Translate",
                         p << "Output:",
                         p << (textarea << text_out) ! [rows "5", cols "100", name "out_field"],
-                        --paragraph << ("Output: " +++ (textfield "out_field") ! [value text_out, size "100"]),
                         paragraph << ("Send SQL code to " ++ db_choice ++ " database: " +++ submit "button_id" "Send to DB" 
                             +++ "   Also commit changes: " +++ (checkbox "commit_box" "ticked") ! (commitState commit_choice))
                         ]
           +++ fieldset << ([legend << ("Output from the database"), db_out])
-          --(textarea << db_out) ! [rows "30", cols "100"] ???
 
 commitState :: Bool -> [HtmlAttr]
 commitState True = [checked]
@@ -91,21 +107,29 @@ cgiMain = do page_id <- getInput "page_id"
                          Just "Add a language for this database" -> do
                              -- Getting data out from prev page
                              db_choice <- getInput "db_choice"
+                             username <- getInput "username"
+                             password <- getInput "password"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
-                             (tabs', cols') <- liftIO $ getTabsAndCols db_choice'
+                             let username' = maybe "error" id username
+                             let password' = maybe "error" id password
+                             (tabs', cols') <- liftIO $ getTabsAndCols db_choice' username' password'
                              langs <- liftIO $ findGenLangs
                              -- Putting data into next page
-                             showPage $ language_page db_choice' langs tabs' cols'
+                             showPage $ language_page db_choice' username' password' langs tabs' cols'
                          Just "Choose and enter translator" -> do
                              -- Getting data out from prev page
                              db_choice <- getInput "db_choice"
+                             username <- getInput "username"
+                             password <- getInput "password"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
+                             let username' = maybe "error" id username
+                             let password' = maybe "error" id password
                              liftIO $ genPGF db_choice'
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' "" langs "none" "none" "" False (p << "Nothing")
+                             showPage $ translation_page db_choice' username' password' "" langs "none" "none" "" False (p << "Nothing")
                          _ -> output "Error: Database page, unknown button"
                  Just "language" ->
                      case button_id of
@@ -117,10 +141,14 @@ cgiMain = do page_id <- getInput "page_id"
                          Just "Submit and enter translator" -> do
                              -- Getting data out from prev page
                              db_choice <- getInput "db_choice"
+                             username <- getInput "username"
+                             password <- getInput "password"
                              lang_sel <- getInput "lang_sel"
                              inputs <- getInputs
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
+                             let username' = maybe "error" id username
+                             let password' = maybe "error" id password
                              let lang_sel' = maybe "error" id lang_sel
                              let col_sing_inputs' = someInputs inputs "col_sing_"
                              let col_plur_inputs' = someInputs inputs "col_plur_"
@@ -134,19 +162,23 @@ cgiMain = do page_id <- getInput "page_id"
                              liftIO $ genPGF db_choice'
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' "" langs "none" "none" "" False (p << "Nothing")
+                             showPage $ translation_page db_choice' username' password' "" langs "none" "none" "" False (p << "Nothing")
                          _ -> output "Error: Language page, unknown button"
                  Just "translation" ->
                      case button_id of
                          Just "Translate" -> do
                              -- Getting data out from prev page
                              db_choice <- getInput "db_choice"
+                             username <- getInput "username"
+                             password <- getInput "password"
                              text_in <- getInput "in_field"
                              lang_in <- getInput "in_sel"
                              lang_out <- getInput "out_sel"
                              commit_box <- getInput "commit_box"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
+                             let username' = maybe "error" id username
+                             let password' = maybe "error" id password
                              let text_in' = maybe "error" id text_in
                              let lang_in' = maybe "error" id lang_in
                              let lang_out' = maybe "error" id lang_out
@@ -156,7 +188,7 @@ cgiMain = do page_id <- getInput "page_id"
                              let lexed_text_out = lexerOut lang_out' text_out'
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' lexed_text_out commit_choice (p << ("lexed_text_in: " ++ lexed_text_in)) -- (p << "Nothing")
+                             showPage $ translation_page db_choice' username' password' text_in' langs lang_in' lang_out' lexed_text_out commit_choice (p << "Nothing")
                          Just "Choose another database" -> do
                              -- Getting data out from prev page
                              -- Peforming calculations
@@ -165,15 +197,21 @@ cgiMain = do page_id <- getInput "page_id"
                          Just "Add a language for this database" -> do
                              -- Getting data out from prev page
                              db_choice <- getInput "db_choice"
+                             username <- getInput "username"
+                             password <- getInput "password"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
-                             (tabs', cols') <- liftIO $ getTabsAndCols db_choice'
+                             let username' = maybe "error" id username
+                             let password' = maybe "error" id password
+                             (tabs', cols') <- liftIO $ getTabsAndCols db_choice' username' password'
                              langs <- liftIO $ findGenLangs
                              -- Putting data into next page
-                             showPage $ language_page db_choice' langs tabs' cols'
+                             showPage $ language_page db_choice' username' password' langs tabs' cols'
                          Just "Send to DB" -> do
                              -- Getting data out from prev page
                              db_choice <- getInput "db_choice"
+                             username <- getInput "username"
+                             password <- getInput "password"
                              text_in <- getInput "in_field"
                              lang_in <- getInput "in_sel"
                              lang_out <- getInput "out_sel"
@@ -181,15 +219,17 @@ cgiMain = do page_id <- getInput "page_id"
                              commit_box <- getInput "commit_box"
                              -- Peforming calculations
                              let db_choice' = maybe "error" id db_choice
+                             let username' = maybe "error" id username
+                             let password' = maybe "error" id password
                              let text_in' = maybe "error" id text_in
                              let lang_in' = maybe "error" id lang_in
                              let lang_out' = maybe "error" id lang_out
                              let text_out' = maybe "error" id text_out
                              let commit_choice = isJust commit_box
-                             db_out' <- liftIO $ maybeSendToDB db_choice' text_out commit_choice
+                             db_out' <- liftIO $ maybeSendToDB db_choice' username' password' text_out commit_choice
                              langs <- liftIO $ findSpecLangs db_choice'
                              -- Putting data into next page
-                             showPage $ translation_page db_choice' text_in' langs lang_in' lang_out' text_out' commit_choice db_out'
+                             showPage $ translation_page db_choice' username' password' text_in' langs lang_in' lang_out' text_out' commit_choice db_out'
                          _ -> output "Error: Translation page, unknown button"
                  Nothing -> showPage $ database_page
                  _ -> output "Error: Unknown page"
@@ -237,22 +277,23 @@ specLangFilter _ = False
 -- Getting tables and columns for a database
 ---------------------------------------------
 
-getTabsAndCols db = do
-    let postgresParameters = "host=localhost port=5432 dbname=" ++ db ++ " user=postgres password=palm77fe" -- lose the password ???
+getTabsAndCols db username password = do
+    let postgresParameters = "host=localhost port=5432 dbname=" ++ db ++ " user=" ++ username ++ " password=" ++ password
     (connInteger, connStr, maybeConn) <- catchSql (connectPGHelper postgresParameters) sqlConnHandler
     case maybeConn of
         Nothing -> do
-            let tabs = ["conn fail"] -- ???
-            let cols = ["conn faillll"]
+            let tabs = ["conn fail"] -- Handle this with a helpful error screen
+            let cols = ["conn fail"]
             return (tabs, cols)
         Just conn -> do
-            let tabGetting = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" -- get list of tables
+            let tabGetting = "SELECT table_name FROM information_schema.tables WHERE table_schema <> 'information_schema' AND table_schema <> 'pg_catalog' ORDER BY table_name;"
+            -- get list of tables  (WHERE table_schema = 'public')
             statement <- prepare conn tabGetting
-            (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler -- either -2 and error string or the num of rows affected? and "Works fine!"
+            (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler -- either -2 and error string or the num of rows affected and "Works fine!"
             case execInteger of
                 -2 -> do
-                    let tabs = ["tab fail"] -- ???
-                    let cols = ["col whocares"]
+                    let tabs = ["tab fail"] -- Handle this with a helpful error screen
+                    let cols = ["col fail"]
                     disconnect conn
                     return (tabs, cols)
                 _ -> do
@@ -266,10 +307,10 @@ getTabsAndCols db = do
 getCols conn tab = do
     let colGetting = "select * from " ++ tab ++ " where false;"
     statement <- prepare conn colGetting
-    (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler -- either -2 and error string or the num of rows affected? and "Works fine!"
+    (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler -- either -2 and error string or the num of rows affected and "Works fine!"
     case execInteger of
         -2 -> do
-            return ["col fail"] -- ???
+            return ["col fail"] -- Handle this with a helpful error screen
         _ -> do
             getColumnNames statement
 
@@ -277,7 +318,7 @@ connectPGHelper parameters = do
     conn <- connectPostgreSQL parameters
     return (1, "Connected fine!", Just conn)
 
-sqlConnHandler :: SqlError -> IO (Integer, String, Maybe Connection) -- any other errors to handle?
+sqlConnHandler :: SqlError -> IO (Integer, String, Maybe Connection)
 sqlConnHandler (SqlError seState seNativeError seErrorMsg) = do
     return (-2, seErrorMsg, Nothing)
 
@@ -346,10 +387,21 @@ natInLex s = separatePunctuation $ map toLower s
 ---
 
 spaceHider :: String -> String -- switches from actual space character to replacement code for space
-spaceHider s = " " ++ (Data.Text.unpack $ replace (pack " ") (pack "%SPACE%") (pack s)) ++ " "
+spaceHider s | conTest s = "% " ++ (Data.Text.unpack $ replace (pack " ") (pack "#SPACE#") (pack $ tail $ init s)) ++ " %"
+             | begTest s = " " ++ (Data.Text.unpack $ replace (pack " ") (pack "#SPACE#") (pack $ init s)) ++ " %"
+             | endTest s = "% " ++ (Data.Text.unpack $ replace (pack " ") (pack "#SPACE#") (pack $ tail s)) ++ " "
+             | otherwise = " " ++ (Data.Text.unpack $ replace (pack " ") (pack "#SPACE#") (pack s)) ++ " "
 
 spaceShower :: String -> String -- switches from replacement code for space to actual space character
-spaceShower s = Data.Text.unpack $ replace (pack "%SPACE%") (pack " ") (pack $ tail $ init s)
+spaceShower s | conTest s = "%" ++ (Data.Text.unpack $ replace (pack "#SPACE#") (pack " ") (pack $ tail $ tail $ init $ init s)) ++ "%"
+              | begTest s = (Data.Text.unpack $ replace (pack "#SPACE#") (pack " ") (pack $ tail $ init $ init s)) ++ "%"
+              | endTest s = "%" ++ (Data.Text.unpack $ replace (pack "#SPACE#") (pack " ") (pack $ tail $ tail $ init s))
+              | otherwise = Data.Text.unpack $ replace (pack "#SPACE#") (pack " ") (pack $ tail $ init s)
+
+conTest s = begTest s && endTest s
+
+begTest s = isSuffixOf "%" s
+endTest s = isPrefixOf "%" s
 
 ---
 
@@ -373,7 +425,7 @@ separatePunctuation s = do
 sepPuncOne :: String -> String -> String -- for each p in s, surround it with spaces
 sepPuncOne s p = Data.Text.unpack $ replace (pack p) (pack (" " ++ p ++ " ")) (pack s)
 
-sepPuncList = [";", "*", "(", ")", ",", ".", "=", ">", "<", ">=", "<=", "<>", "%'", "'%"] -- "'"
+sepPuncList = [";", "*", "(", ")", ",", ".", "=", ">", "<", ">=", "<=", "<>"] -- , "%'", "'%"] -- "'"
 
 ---
 
@@ -458,12 +510,12 @@ loseSpace c = c
 -- Sending SQL to database, getting result
 ---------------------------------------------
 
-maybeSendToDB db text_out commit_choice = do
+maybeSendToDB db username password text_out commit_choice = do
     case text_out of
         Nothing -> return (p << "Nothing")
         Just "" -> return (p << "Nothing")
         Just text_out' -> do
-            let postgresParameters = "host=localhost port=5432 dbname=" ++ db ++ " user=postgres password=palm77fe" -- lose the password ???
+            let postgresParameters = "host=localhost port=5432 dbname=" ++ db ++ " user=" ++ username ++ " password=" ++ password
             conn <- connectPostgreSQL postgresParameters
             statement <- prepare conn text_out'
             (execInteger, execString) <- catchSql (sqlExecuter statement) sqlHandler
@@ -485,7 +537,7 @@ sqlExecuter statement = do
     execInt <- execute statement []
     return (execInt, "Works fine!")
 
-sqlHandler :: SqlError -> IO (Integer, String) -- any other errors to handle?
+sqlHandler :: SqlError -> IO (Integer, String)
 sqlHandler (SqlError seState seNativeError seErrorMsg) = do
     return (-2, seErrorMsg)
 
@@ -512,7 +564,7 @@ processCell Nothing = "[null]"
 --prettyRow (cell:cells) = cell ++ ", " ++ prettyRow cells
 
 --------
--- Merge these with process ones above ???
+-- Merge these with process ones above?
 mkHtmlTable :: [String] -> [[String]] -> Integer -> Html
 mkHtmlTable colNames theTable affectedRows = table << tbody << map mkHtmlRow ([["Result: " ++ show affectedRows ++ " rows were modified"], colNames, replicate (length colNames) "-----"] ++ theTable)
 

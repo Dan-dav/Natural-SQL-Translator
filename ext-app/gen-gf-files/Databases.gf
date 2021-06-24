@@ -53,13 +53,11 @@ fun
   SColumnSum : Column -> ColumnPart ;
   
   ------- FROM, LIMIT
-  
-  --SFromTable : Table -> Limit -> FromLimPart ;
 
   FromTab : Table -> FromLimPart ;
   FromTabLim : Table -> Int -> FromLimPart ;
   FromJoin : JoinType -> TabCol -> TabCol -> FromLimPart ;
-  -- FromJoinLim
+  FromJoinLim : JoinType -> TabCol -> TabCol -> Int -> FromLimPart ;
 
   ------- JOIN
 
@@ -74,9 +72,9 @@ fun
   PredNothing : PredicatePart ;
   PredSomething : Predicate -> PredicatePart ;
 
-  PredAnd : Predicate -> Predicate -> Predicate ; -- mind parentheses on sql side
+  PredAnd : Predicate -> Predicate -> Predicate ;
   PredOr : Predicate -> Predicate -> Predicate ;
-  PredComp : Column -> CompOp -> Value -> Predicate ; -- =, <>, >, >=, <, <=
+  PredComp : Column -> CompOp -> Value -> Predicate ;
   PredIn : Column -> [Value] -> Predicate ;
   PredBetween : Column -> Value -> Value -> Predicate ;
   PredLike : Column -> LikeOp -> String -> Predicate ;
@@ -87,8 +85,8 @@ fun
   ValInt : Int -> Value ;
   ValStr : String -> Value ;
   
-  CompOpEq, CompOpGt, CompOpLt, CompOpGEq, CompOpLEq, CompOpNE : CompOp ;
-  LikeBegins, LikeEnds, LikeContains : LikeOp ; -- Doesn't cover all of LIKE functionality
+  CompOpEq, CompOpGt, CompOpLt, CompOpGEq, CompOpLEq, CompOpNE : CompOp ; -- =, >, <, >=, <=, <>
+  LikeBegins, LikeEnds, LikeContains : LikeOp ;
 
   ------- ORDER BY
 
@@ -124,7 +122,7 @@ fun
 
   UpdateOne : UpdateCol -> UpdatePart ;
   UpdateMultiple : [UpdateCol] -> UpdatePart ;
-  -- add support for inc by one etc.
+  -- add support for x = x + 1 etc.
 
   UpdateColWith : Column -> Value -> UpdateCol ;
 

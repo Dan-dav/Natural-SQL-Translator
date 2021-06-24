@@ -1,13 +1,5 @@
 concrete DatabasesSQL of Databases = {
 
---oper
-  --likeString : LikeOp -> Str -> Str = \op, st ->
-  --  case op of {
-  --    LikeBegins => "'" ++ st.s ++ "%'" ;
-  --    LikeEnds => "'%" ++ st.s ++ "'" ;
-  --    LikeContains => "'%" ++ st.s ++ "%'"
-  --  } ;
-
 lincat
   Statement, Query, ColumnPart, JoinType, Column, 
   [Column], PredicatePart, Predicate, Value, [Value], CompOp, OrderPart, SortBy, 
@@ -37,7 +29,7 @@ lin
   SColumnCount = "SELECT COUNT ( * )" ;
   SColumnCountCol c = "SELECT COUNT (" ++ c ++ ")" ;
   SColumnCountDistinct c = "SELECT COUNT ( DISTINCT" ++ c ++ ")" ;
-  --SColumnCountDistinctMultiple cs = "SELECT COUNT ( DISTINCT" ++ cs ++ ")" ;
+  -- not in postgres: SColumnCountDistinctMultiple cs = "SELECT COUNT ( DISTINCT" ++ cs ++ ")" ;
   SColumnAvg c = "SELECT AVG (" ++ c ++ ")" ;
   SColumnSum c = "SELECT SUM (" ++ c ++ ")" ;
 
@@ -45,15 +37,12 @@ lin
   ConsColumn c cs = c ++ "," ++ cs ;
 
   ------- FROM, LIMIT
-  
-  --SFromTable t = "FROM" ++ t ;
 
   FromTab t = {from = "FROM" ++ t ; lim = ""} ;
   FromTabLim t i = {from = "FROM" ++ t ; lim = "LIMIT" ++ i.s} ;
-  -- FromJoinInner tc1 tc2 = {from = "FROM" ++ tc1.tab ++ "INNER JOIN" ++ tc2.tab ++ "ON" ++ tc1.tab ++ "." ++ tc1.col ++ "=" ++ tc2.tab ++ "." ++ tc2.col ; lim = ""} ;
 
   FromJoin jt tc1 tc2 = {from = "FROM" ++ tc1.tab ++ jt ++ "JOIN" ++ tc2.tab ++ "ON" ++ tc1.tab ++ "." ++ tc1.col ++ "=" ++ tc2.tab ++ "." ++ tc2.col ; lim = ""} ;
-  -- FromJoinLim ???
+  FromJoinLim jt tc1 tc2 i = {from = "FROM" ++ tc1.tab ++ jt ++ "JOIN" ++ tc2.tab ++ "ON" ++ tc1.tab ++ "." ++ tc1.col ++ "=" ++ tc2.tab ++ "." ++ tc2.col ; lim = "LIMIT" ++ i.s} ;
 
   ------- JOIN
 
