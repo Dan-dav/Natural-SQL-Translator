@@ -193,7 +193,8 @@ lin
   -- CN NP -> S
   PredSubQuery c q = variants {
     mkS (mkCl (mkNP the_Det c) (mkNP (mkNP (mkDet (mkNumeral n1_Unit))) (mkAdv part_Prep q))) ;
-    mkS (mkCl (mkNP the_Det c) q)
+    mkS (mkCl (mkNP the_Det c) q) ;
+    mkS (mkCl (mkNP aPl_Det c) q)
     } ;
   -- the c is one of q
   -- "the countries where (the capital is one of the names of all countries)"
